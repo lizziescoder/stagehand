@@ -14,12 +14,7 @@ export class StagehandObserveHandler {
   private readonly stagehand: Stagehand;
   private readonly logger: (logLine: LogLine) => void;
   private readonly stagehandPage: StagehandPage;
-  private observations: {
-    [key: string]: {
-      result: { selector: string; description: string }[];
-      instruction: string;
-    };
-  };
+
   private readonly userProvidedInstructions?: string;
   constructor({
     stagehand,
@@ -36,7 +31,6 @@ export class StagehandObserveHandler {
     this.logger = logger;
     this.stagehandPage = stagehandPage;
     this.userProvidedInstructions = userProvidedInstructions;
-    this.observations = {};
   }
 
   public async observe({
