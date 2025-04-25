@@ -5,7 +5,7 @@ import { z } from "zod";
 async function example() {
   const stagehand = new Stagehand({
     ...StagehandConfig,
-    modelName: "aisdk/openai/gpt-4o",
+    modelName: "openai/gpt-4o",
   });
 
   await stagehand.init();

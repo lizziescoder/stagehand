@@ -10,7 +10,7 @@ export const hn_aisdk: EvalFunction = async ({
 }) => {
   const stagehand = new Stagehand({
     ...stagehandConfig,
-    modelName: "aisdk/openai/gpt-4o-mini",
+    modelName: "openai/gpt-4o-mini",
   });
   await stagehand.init();
   await stagehand.page.goto(
