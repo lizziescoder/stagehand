@@ -57,6 +57,14 @@ export class UnsupportedModelProviderError extends StagehandError {
   }
 }
 
+export class UnsupportedAISDKModelProviderError extends StagehandError {
+  constructor(provider: string, supportedProviders: string[]) {
+    super(
+      `${provider} is not currently supported for aiSDK. please use one of the supported model providers: ${supportedProviders}`,
+    );
+  }
+}
+
 export class StagehandNotInitializedError extends StagehandError {
   constructor(prop: string) {
     super(

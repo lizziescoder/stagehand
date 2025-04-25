@@ -1,8 +1,8 @@
 import {
+  UnsupportedAISDKModelProviderError,
   UnsupportedModelError,
   UnsupportedModelProviderError,
 } from "@/types/stagehandErrors";
-import { LanguageModel } from "ai";
 import { LogLine } from "../../types/log";
 import {
   AvailableModel,
@@ -29,6 +29,22 @@ import { mistral } from "@ai-sdk/mistral";
 import { deepseek } from "@ai-sdk/deepseek";
 import { perplexity } from "@ai-sdk/perplexity";
 import { ollama } from "ollama-ai-provider";
+import { AISDKProvider } from "@/types/llm";
+
+const AISDKProviders: Record<string, AISDKProvider> = {
+  openai,
+  anthropic,
+  google,
+  xai,
+  azure,
+  groq,
+  cerebras,
+  togetherai,
+  mistral,
+  deepseek,
+  perplexity,
+  ollama,
+};
 
 const modelToProviderMap: { [key in AvailableModel]: ModelProvider } = {
   "gpt-4.1": "openai",
@@ -104,48 +120,8 @@ export class LLMProvider {
         throw new Error(`Invalid aisdk model format: ${modelName}`);
       }
       const [subProvider, subModelName] = parts;
-      let languageModel: LanguageModel;
 
-      switch (subProvider) {
-        case "openai":
-          languageModel = openai(subModelName);
-          break;
-        case "anthropic":
-          languageModel = anthropic(subModelName);
-          break;
-        case "google":
-          languageModel = google(subModelName);
-          break;
-        case "xai":
-          languageModel = xai(subModelName);
-          break;
-        case "azure":
-          languageModel = azure(subModelName);
-          break;
-        case "groq":
-          languageModel = groq(subModelName);
-          break;
-        case "cerebras":
-          languageModel = cerebras(subModelName);
-          break;
-        case "togetherai":
-          languageModel = togetherai(subModelName);
-          break;
-        case "mistral":
-          languageModel = mistral(subModelName);
-          break;
-        case "deepseek":
-          languageModel = deepseek(subModelName);
-          break;
-        case "perplexity":
-          languageModel = perplexity(subModelName);
-          break;
-        case "ollama":
-          languageModel = ollama(subModelName);
-          break;
-        default:
-          throw new Error(`Unsupported aisdk sub-provider: ${subProvider}`);
-      }
+      const languageModel = getAISDKLanguageModel(subProvider, subModelName);
 
       return new AISdkClient({
         model: languageModel,
@@ -153,6 +129,17 @@ export class LLMProvider {
         enableCaching: this.enableCaching,
         cache: this.cache,
       });
+    }
+
+    function getAISDKLanguageModel(subProvider: string, subModelName: string) {
+      const aiSDKLanguageModel = AISDKProviders[subProvider];
+      if (!aiSDKLanguageModel) {
+        throw new UnsupportedAISDKModelProviderError(
+          subProvider,
+          Object.keys(AISDKProviders),
+        );
+      }
+      return aiSDKLanguageModel(subModelName);
     }
 
     const provider = modelToProviderMap[modelName];
