@@ -45,6 +45,7 @@ import {
   MissingEnvironmentVariableError,
   UnsupportedModelError,
   UnsupportedAISDKModelProviderError,
+  InvalidAISDKModelFormatError,
 } from "../types/stagehandErrors";
 
 dotenv.config({ path: ".env" });
@@ -545,7 +546,10 @@ export class Stagehand {
           modelClientOptions,
         );
       } catch (error) {
-        if (error instanceof UnsupportedAISDKModelProviderError) {
+        if (
+          error instanceof UnsupportedAISDKModelProviderError ||
+          error instanceof InvalidAISDKModelFormatError
+        ) {
           throw error;
         }
         this.llmClient = undefined;

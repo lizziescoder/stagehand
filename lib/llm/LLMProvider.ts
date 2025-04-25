@@ -1,4 +1,5 @@
 import {
+  InvalidAISDKModelFormatError,
   UnsupportedAISDKModelProviderError,
   UnsupportedModelError,
   UnsupportedModelProviderError,
@@ -117,7 +118,7 @@ export class LLMProvider {
     if (modelName.includes("/")) {
       const parts = modelName.split("/");
       if (parts.length !== 2) {
-        throw new Error(`Invalid aisdk model format: ${modelName}`);
+        throw new InvalidAISDKModelFormatError(modelName);
       }
       const [subProvider, subModelName] = parts;
 
