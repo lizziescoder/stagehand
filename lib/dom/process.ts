@@ -1,4 +1,3 @@
-import { generateXPathsForElement as generateXPaths } from "./xpathUtils";
 import {
   calculateViewportHeight,
   canElementScroll,
