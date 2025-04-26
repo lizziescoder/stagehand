@@ -342,6 +342,11 @@ export async function getAccessibilityTree(
 // It is not meant to be actually executed here
 const functionString = `
 function getNodePath(el) {
+  // If it's a document node, route to \`documentElement\`.
+  if (el && el.nodeType === Node.DOCUMENT_NODE && el.documentElement) {
+    el = el.documentElement;
+  }
+
   if (!el || (el.nodeType !== Node.ELEMENT_NODE && el.nodeType !== Node.TEXT_NODE)) {
     console.log("el is not a valid node type");
     return "";
