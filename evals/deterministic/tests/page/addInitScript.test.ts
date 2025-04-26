@@ -48,21 +48,21 @@ test.describe("StagehandPage - addInitScript", () => {
     );
 
     // delete the __stagehandInjected flag, and delete the
-    // getScrollableElementXpaths function
+    // processAllOfDom function
     await page.evaluate(() => {
-      delete window.getScrollableElementXpaths;
+      delete window.processAllOfDom;
       delete window.__stagehandInjected;
     });
 
-    // attempt to call the getScrollableElementXpaths function
+    // attempt to call the processAllOfDom function
     // which we previously deleted. page.evaluate should realize
     // its been deleted and re-inject it
-    const xpaths = await page.evaluate(() => {
-      return window.getScrollableElementXpaths();
+    const { selectorMap } = await page.evaluate(() => {
+      return window.processAllOfDom();
     });
 
     await stagehand.close();
     // this is the only scrollable element on the page
-    expect(xpaths).toContain("/html");
+    expect(Object.keys(selectorMap).length).toBeGreaterThanOrEqual(5);
   });
 });

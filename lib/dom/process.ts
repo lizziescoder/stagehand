@@ -61,26 +61,6 @@ export function getScrollableElements(topN?: number): HTMLElement[] {
   return scrollableElements;
 }
 
-/**
- * Calls getScrollableElements, then for each element calls generateXPaths,
- * and returns the first XPath for each.
- *
- * @param topN (optional) integer limit on how many scrollable elements to process
- * @returns string[] list of XPaths (1 for each scrollable element)
- */
-export async function getScrollableElementXpaths(
-  topN?: number,
-): Promise<string[]> {
-  const scrollableElems = getScrollableElements(topN);
-  const xpaths = [];
-  for (const elem of scrollableElems) {
-    const allXPaths = await generateXPaths(elem);
-    const firstXPath = allXPaths?.[0] || "";
-    xpaths.push(firstXPath);
-  }
-  return xpaths;
-}
-
 export function getNearestScrollableParent(el: HTMLElement): HTMLElement {
   // 1) Get *all* scrollable elements on the page
   //    (You could pass a large topN or omit it for “all”)
@@ -529,7 +509,6 @@ window.restoreDOM = restoreDOM;
 window.createTextBoundingBoxes = createTextBoundingBoxes;
 window.getElementBoundingBoxes = getElementBoundingBoxes;
 window.createStagehandContainer = createStagehandContainer;
-window.getScrollableElementXpaths = getScrollableElementXpaths;
 window.getNodeFromXpath = getNodeFromXpath;
 window.waitForElementScrollEnd = waitForElementScrollEnd;
 

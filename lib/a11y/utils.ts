@@ -407,19 +407,8 @@ export async function getXPathByResolvedObjectId(
 }
 
 /**
- * `findScrollableElementIds` is a function that identifies elements in
- * the browser that are deemed "scrollable". At a high level, it does the
- * following:
- * - Calls the browser-side `window.getScrollableElementXpaths()` function,
- *   which returns a list of XPaths for scrollable containers.
- * - Iterates over the returned list of XPaths, locating each element in the DOM
- *   using `stagehandPage.sendCDP(...)`
- *     - During each iteration, we call `Runtime.evaluate` to run `document.evaluate(...)`
- *       with each XPath, obtaining a `RemoteObject` reference if it exists.
- *     - Then, for each valid object reference, we call `DOM.describeNode` to retrieve
- *       the element’s `backendNodeId`.
- * - Collects all resulting `backendNodeId`s in a Set and returns them.
- *
+ * `findScrollableElementIds` identifies elements with the native `isScrollable` property
+ * exposed by the DOM domain in Chrome DevTools Protocol.
  * @param stagehandPage - A StagehandPage instance with built-in CDP helpers.
  * @returns A Promise that resolves to a Set of unique `backendNodeId`s corresponding
  *          to scrollable elements in the DOM.
@@ -427,46 +416,31 @@ export async function getXPathByResolvedObjectId(
 export async function findScrollableElementIds(
   stagehandPage: StagehandPage,
 ): Promise<Set<number>> {
-  // get the xpaths of the scrollable elements
-  const xpaths = await stagehandPage.page.evaluate(() => {
-    return window.getScrollableElementXpaths();
-  });
+  await stagehandPage.enableCDP("DOM");
 
-  const scrollableBackendIds = new Set<number>();
-
-  for (const xpath of xpaths) {
-    if (!xpath) continue;
-
-    // evaluate the XPath in the stagehandPage
-    const { result } = await stagehandPage.sendCDP<{
-      result?: { objectId?: string };
-    }>("Runtime.evaluate", {
-      expression: `
-        (function() {
-          const res = document.evaluate(${JSON.stringify(
-            xpath,
-          )}, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-          return res.singleNodeValue;
-        })();
-      `,
-      returnByValue: false,
+  try {
+    const { nodes } = await stagehandPage.sendCDP<{
+      nodes: Array<{
+        backendNodeId?: number;
+        isScrollable?: boolean;
+      }>;
+    }>("DOM.getFlattenedDocument", {
+      depth: -1,
+      pierce: true,
     });
 
-    // if we have an objectId, call DOM.describeNode to get backendNodeId
-    if (result?.objectId) {
-      const { node } = await stagehandPage.sendCDP<{
-        node?: { backendNodeId?: number };
-      }>("DOM.describeNode", {
-        objectId: result.objectId,
-      });
+    const scrollableBackendIds = new Set<number>();
 
-      if (node?.backendNodeId) {
+    for (const node of nodes) {
+      if (node.isScrollable && node.backendNodeId != null) {
         scrollableBackendIds.add(node.backendNodeId);
       }
     }
-  }
 
-  return scrollableBackendIds;
+    return scrollableBackendIds;
+  } finally {
+    await stagehandPage.disableCDP("DOM");
+  }
 }
 
 /**
