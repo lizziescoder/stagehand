@@ -62,7 +62,6 @@ test.describe("StagehandPage - addInitScript", () => {
     });
 
     await stagehand.close();
-    // this is the only scrollable element on the page
     expect(Object.keys(selectorMap).length).toBeGreaterThanOrEqual(5);
   });
 });
