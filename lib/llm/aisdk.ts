@@ -66,7 +66,7 @@ export class AISdkClient extends LLMClient {
       response_model: options.response_model,
     };
 
-    if (this.enableCaching) {
+    if (this.enableCaching && this.cache) {
       const cachedResponse = await this.cache.get<T>(
         cacheOptions,
         options.requestId,
@@ -216,7 +216,7 @@ export class AISdkClient extends LLMClient {
 
     const tools: Record<string, CoreTool> = {};
 
-    for (const rawTool of options.tools) {
+    for (const rawTool of options.tools ?? []) {
       tools[rawTool.name] = {
         description: rawTool.description,
         parameters: rawTool.parameters,
