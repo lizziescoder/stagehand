@@ -39,7 +39,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { groq } from "@ai-sdk/groq";
 import { cerebras } from "@ai-sdk/cerebras";
 import { openai } from "@ai-sdk/openai";
-import { AISdkClient } from "@/lib/llm/aisdk";
+import { AISdkClient } from "@/examples/external_clients/aisdk";
 dotenv.config();
 
 /**
