@@ -1,5 +1,4 @@
 import {
-  InvalidAISDKModelFormatError,
   UnsupportedAISDKModelProviderError,
   UnsupportedModelError,
   UnsupportedModelProviderError,
@@ -116,11 +115,9 @@ export class LLMProvider {
     clientOptions?: ClientOptions,
   ): LLMClient {
     if (modelName.includes("/")) {
-      const parts = modelName.split("/");
-      if (parts.length !== 2) {
-        throw new InvalidAISDKModelFormatError(modelName);
-      }
-      const [subProvider, subModelName] = parts;
+      const firstSlashIndex = modelName.indexOf('/');
+      const subProvider = modelName.substring(0, firstSlashIndex);
+      const subModelName = modelName.substring(firstSlashIndex + 1);
 
       const languageModel = getAISDKLanguageModel(subProvider, subModelName);
 
