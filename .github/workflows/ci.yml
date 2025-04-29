@@ -293,7 +293,7 @@ jobs:
 
       - name: Run Combination Evals
         if: needs.determine-evals.outputs.run-combination == 'true'
-        run: npm run evals category combination
+        run: npm run evals category combination concurrency=25 trials=5
 
       - name: Log Combination Evals Performance
         if: needs.determine-evals.outputs.run-combination == 'true'
@@ -359,7 +359,7 @@ jobs:
 
       - name: Run Act Evals
         if: needs.determine-evals.outputs.run-act == 'true'
-        run: npm run evals category act
+        run: npm run evals category act concurrency=25 trials=5
 
       - name: Log Act Evals Performance
         if: needs.determine-evals.outputs.run-act == 'true'
@@ -429,7 +429,7 @@ jobs:
       # 1. Run extract category with domExtract
       - name: Run Extract Evals (domExtract)
         if: needs.determine-evals.outputs.run-extract == 'true'
-        run: npm run evals category extract -- --extract-method=domExtract
+        run: npm run evals category extract concurrency=25 trials=5 -- --extract-method=domExtract
 
       - name: Save Extract Dom Results
         if: needs.determine-evals.outputs.run-extract == 'true'
@@ -438,7 +438,7 @@ jobs:
       # 2. Then run extract category with textExtract
       - name: Run Extract Evals (textExtract)
         if: needs.determine-evals.outputs.run-extract == 'true'
-        run: npm run evals category extract -- --extract-method=textExtract
+        run: npm run evals category extract concurrency=25 trials=5 -- --extract-method=textExtract
 
       - name: Save Extract Text Results
         if: needs.determine-evals.outputs.run-extract == 'true'
@@ -514,7 +514,7 @@ jobs:
 
       - name: Run text_extract Evals (textExtract)
         if: needs.determine-evals.outputs.run-text-extract == 'true'
-        run: npm run evals category text_extract -- --extract-method=textExtract
+        run: npm run evals category text_extract concurrency=25 trials=5 -- --extract-method=textExtract
 
       - name: Save text_extract Results
         if: needs.determine-evals.outputs.run-text-extract == 'true'
@@ -584,7 +584,7 @@ jobs:
 
       - name: Run Observe Evals
         if: needs.determine-evals.outputs.run-observe == 'true'
-        run: npm run evals category observe
+        run: npm run evals category observe concurrency=25 trials=5
 
       - name: Log Observe Evals Performance
         if: needs.determine-evals.outputs.run-observe == 'true'
@@ -653,7 +653,7 @@ jobs:
 
       - name: Run targeted extract Evals
         if: needs.determine-evals.outputs.run-targeted-extract == 'true'
-        run: npm run evals category targeted_extract -- --extract-method=textExtract
+        run: npm run evals category targeted_extract concurrency=25 trials=5 -- --extract-method=textExtract
 
       - name: Log targeted extract Evals Performance
         if: needs.determine-evals.outputs.run-targeted-extract == 'true'
