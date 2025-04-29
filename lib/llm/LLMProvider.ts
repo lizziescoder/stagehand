@@ -115,7 +115,7 @@ export class LLMProvider {
     clientOptions?: ClientOptions,
   ): LLMClient {
     if (modelName.includes("/")) {
-      const firstSlashIndex = modelName.indexOf('/');
+      const firstSlashIndex = modelName.indexOf("/");
       const subProvider = modelName.substring(0, firstSlashIndex);
       const subModelName = modelName.substring(firstSlashIndex + 1);
 
