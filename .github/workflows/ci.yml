@@ -653,7 +653,7 @@ jobs:
 
       - name: Run targeted extract Evals
         if: needs.determine-evals.outputs.run-targeted-extract == 'true'
-        run: npm run evals category targeted_extract concurrency=25 trials=5 -- --extract-method=textExtract
+        run: npm run evals category targeted_extract concurrency=25 trials=5
 
       - name: Log targeted extract Evals Performance
         if: needs.determine-evals.outputs.run-targeted-extract == 'true'
