@@ -671,7 +671,6 @@ export class Stagehand {
         logger: this.logger,
       });
 
-      console.log(this.modelClientOptions);
       const modelApiKey = this.modelClientOptions?.apiKey;
 
       const { sessionId } = await this.apiClient.init({
