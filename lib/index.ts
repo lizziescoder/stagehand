@@ -561,13 +561,27 @@ export class Stagehand {
         this.llmClient = undefined;
       }
     }
-
-    if (!modelClientOptions?.apiKey && this.llmClient.type === "aisdk") {
+    let modelApiKey: string | undefined;
+    if (!modelClientOptions?.apiKey) {
       // If no API key is provided, try to load it from the environment
-      const modelApiKey = loadApiKeyFromEnv(
-        this.modelName.split("/")[0],
-        this.logger,
-      );
+      if (this.llmClient.type === "aisdk") {
+        modelApiKey = loadApiKeyFromEnv(
+          this.modelName.split("/")[0],
+          this.logger,
+        );
+      } else {
+        // Temporary add for legacy providers
+        modelApiKey =
+          LLMProvider.getModelProvider(this.modelName) === "openai"
+            ? process.env.OPENAI_API_KEY || this.llmClient.clientOptions.apiKey
+            : LLMProvider.getModelProvider(this.modelName) === "anthropic"
+              ? process.env.ANTHROPIC_API_KEY ||
+                this.llmClient.clientOptions.apiKey
+              : LLMProvider.getModelProvider(this.modelName) === "google"
+                ? process.env.GOOGLE_API_KEY ||
+                  this.llmClient.clientOptions.apiKey
+                : undefined;
+      }
       this.modelClientOptions = {
         ...modelClientOptions,
         apiKey: modelApiKey,
