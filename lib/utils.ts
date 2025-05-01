@@ -108,7 +108,7 @@ export function formatText(
     }
   }
 
-  // **9: Add a 20-char buffer to ensure we don't cut off text.**
+  // **9: Add a 20-char buffer to ensure we don’t cut off text.**
   maxLineWidthInChars += 20;
 
   // **10: Determine the canvas width based on the measured maxLineWidthInChars.**
@@ -131,7 +131,7 @@ export function formatText(
   // **14: Create a 2D character canvas (array of arrays), filled with spaces.**
   let canvas: string[][] = [];
 
-  // **15: lineIndex tracks which row of the canvas we're on; start at -1 so the first line is index 0.**
+  // **15: lineIndex tracks which row of the canvas we’re on; start at -1 so the first line is index 0.**
   let lineIndex = -1;
 
   // **16: Render each line of text into our canvas.**
@@ -142,7 +142,7 @@ export function formatText(
       ensureLineExists(canvas, lineIndex, canvasWidth);
     } else {
       // **18: For subsequent lines, figure out how many blank lines to insert
-      //       based on the gap between this line's baseline and the previous line's baseline.**
+      //       based on the gap between this line's baseline and the previous line’s baseline.**
       const gap = lineBaselines[i] - lineBaselines[i - 1];
 
       let extraLines = 0;
@@ -158,12 +158,12 @@ export function formatText(
         ensureLineExists(canvas, lineIndex, canvasWidth);
       }
 
-      // **21: Move to the next line (row) in the canvas for this line's text.**
+      // **21: Move to the next line (row) in the canvas for this line’s text.**
       lineIndex++;
       ensureLineExists(canvas, lineIndex, canvasWidth);
     }
 
-    // **22: Place each annotation's text in the correct horizontal position for this line.**
+    // **22: Place each annotation’s text in the correct horizontal position for this line.**
     const lineAnnotations = finalLines[i];
     for (const annotation of lineAnnotations) {
       const text = annotation.text;
@@ -177,7 +177,7 @@ export function formatText(
       // **24: Place each character of the annotation in the canvas.**
       for (let j = 0; j < text.length; j++) {
         const xPos = startXInChars + j;
-        // **25: Don't write beyond the right edge of the canvas.**
+        // **25: Don’t write beyond the right edge of the canvas.**
         if (xPos < canvasWidth) {
           canvas[lineIndex][xPos] = text[j];
         }
@@ -304,7 +304,7 @@ function createGroupedAnnotation(group: TextAnnotation[]): TextAnnotation {
   // insert a space between words, except when punctuation directly follows a word
   for (const word of group) {
     if (
-      [".", ",", '"', "'", ":", ";", "!", "?", "{", "}", "''", ""].includes(
+      [".", ",", '"', "'", ":", ";", "!", "?", "{", "}", "’", "”"].includes(
         word.text,
       )
     ) {
