@@ -25,7 +25,7 @@ import { scriptContent } from "./dom/build/scriptContent";
 import { LLMClient } from "./llm/LLMClient";
 import { LLMProvider } from "./llm/LLMProvider";
 import { ClientOptions } from "../types/model";
-import { isRunningInBun } from "./utils";
+import { isRunningInBun, loadApiKeyFromEnv } from "./utils";
 import { ApiResponse, ErrorResponse } from "@/types/api";
 import { AgentExecuteOptions, AgentResult } from "../types/agent";
 import { StagehandAgentHandler } from "./handlers/agentHandler";
@@ -539,6 +539,7 @@ export class Stagehand {
     this.verbose = verbose ?? 0;
     // Update logger verbosity level
     this.stagehandLogger.setVerbosity(this.verbose);
+    this.modelName = modelName ?? DEFAULT_MODEL_NAME;
 
     if (llmClient) {
       this.llmClient = llmClient;
@@ -546,13 +547,14 @@ export class Stagehand {
       try {
         // try to set a default LLM client
         this.llmClient = this.llmProvider.getClient(
-          modelName ?? DEFAULT_MODEL_NAME,
-          modelClientOptions,
+          this.modelName,
+          this.modelClientOptions,
         );
       } catch (error) {
         if (
           error instanceof UnsupportedAISDKModelProviderError ||
-          error instanceof InvalidAISDKModelFormatError
+          error instanceof InvalidAISDKModelFormatError ||
+          error instanceof UnsupportedModelError
         ) {
           throw error;
         }
@@ -560,14 +562,24 @@ export class Stagehand {
       }
     }
 
-    this.modelClientOptions = modelClientOptions;
+    if (!modelClientOptions?.apiKey && this.llmClient.type === "aisdk") {
+      // If no API key is provided, try to load it from the environment
+      const modelApiKey = loadApiKeyFromEnv(
+        this.modelName.split("/")[0],
+        this.logger,
+      );
+      this.modelClientOptions = {
+        ...modelClientOptions,
+        apiKey: modelApiKey,
+      };
+    }
+
     this.domSettleTimeoutMs = domSettleTimeoutMs ?? 30_000;
     this.headless = localBrowserLaunchOptions?.headless ?? false;
     this.browserbaseSessionCreateParams = browserbaseSessionCreateParams;
     this.browserbaseSessionID = browserbaseSessionID;
     this.userProvidedInstructions = systemPrompt;
     this.usingAPI = useAPI ?? false;
-    this.modelName = modelName ?? DEFAULT_MODEL_NAME;
     if (this.usingAPI && env === "LOCAL") {
       throw new StagehandEnvironmentError("LOCAL", "BROWSERBASE", "API mode");
     } else if (this.usingAPI && !process.env.STAGEHAND_API_URL) {
@@ -578,10 +590,7 @@ export class Stagehand {
     } else if (
       this.usingAPI &&
       this.llmClient &&
-      this.llmClient.type !== "openai" &&
-      this.llmClient.type !== "anthropic" &&
-      this.llmClient.type !== "google" &&
-      this.llmClient.type !== "aisdk"
+      !["openai", "anthropic", "google", "aisdk"].includes(this.llmClient.type)
     ) {
       throw new UnsupportedModelError(
         ["openai", "anthropic", "google", "aisdk"],

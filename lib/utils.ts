@@ -4,6 +4,7 @@ import { ObserveResult, Page } from ".";
 import { LogLine } from "../types/log";
 import { TextAnnotation } from "../types/textannotation";
 import { Schema, Type } from "@google/genai";
+import { ModelProvider } from "../types/model";
 
 // This is a heuristic for the width of a character in pixels. It seems to work
 // better than attempting to calculate character widths dynamically, which sometimes
@@ -107,7 +108,7 @@ export function formatText(
     }
   }
 
-  // **9: Add a 20-char buffer to ensure we don’t cut off text.**
+  // **9: Add a 20-char buffer to ensure we don't cut off text.**
   maxLineWidthInChars += 20;
 
   // **10: Determine the canvas width based on the measured maxLineWidthInChars.**
@@ -130,7 +131,7 @@ export function formatText(
   // **14: Create a 2D character canvas (array of arrays), filled with spaces.**
   let canvas: string[][] = [];
 
-  // **15: lineIndex tracks which row of the canvas we’re on; start at -1 so the first line is index 0.**
+  // **15: lineIndex tracks which row of the canvas we're on; start at -1 so the first line is index 0.**
   let lineIndex = -1;
 
   // **16: Render each line of text into our canvas.**
@@ -141,7 +142,7 @@ export function formatText(
       ensureLineExists(canvas, lineIndex, canvasWidth);
     } else {
       // **18: For subsequent lines, figure out how many blank lines to insert
-      //       based on the gap between this line’s baseline and the previous line’s baseline.**
+      //       based on the gap between this line's baseline and the previous line's baseline.**
       const gap = lineBaselines[i] - lineBaselines[i - 1];
 
       let extraLines = 0;
@@ -157,12 +158,12 @@ export function formatText(
         ensureLineExists(canvas, lineIndex, canvasWidth);
       }
 
-      // **21: Move to the next line (row) in the canvas for this line’s text.**
+      // **21: Move to the next line (row) in the canvas for this line's text.**
       lineIndex++;
       ensureLineExists(canvas, lineIndex, canvasWidth);
     }
 
-    // **22: Place each annotation’s text in the correct horizontal position for this line.**
+    // **22: Place each annotation's text in the correct horizontal position for this line.**
     const lineAnnotations = finalLines[i];
     for (const annotation of lineAnnotations) {
       const text = annotation.text;
@@ -176,7 +177,7 @@ export function formatText(
       // **24: Place each character of the annotation in the canvas.**
       for (let j = 0; j < text.length; j++) {
         const xPos = startXInChars + j;
-        // **25: Don’t write beyond the right edge of the canvas.**
+        // **25: Don't write beyond the right edge of the canvas.**
         if (xPos < canvasWidth) {
           canvas[lineIndex][xPos] = text[j];
         }
@@ -303,7 +304,7 @@ function createGroupedAnnotation(group: TextAnnotation[]): TextAnnotation {
   // insert a space between words, except when punctuation directly follows a word
   for (const word of group) {
     if (
-      [".", ",", '"', "'", ":", ";", "!", "?", "{", "}", "’", "”"].includes(
+      [".", ",", '"', "'", ":", ";", "!", "?", "{", "}", "''", ""].includes(
         word.text,
       )
     ) {
@@ -562,4 +563,61 @@ export function toGeminiSchema(zodSchema: z.ZodTypeAny): Schema {
 // Helper function to check the type of Zod schema
 export function getZodType(schema: z.ZodTypeAny): string {
   return schema._def.typeName;
+}
+
+/**
+ * Mapping from LLM provider names to their corresponding environment variable names for API keys.
+ */
+export const providerEnvVarMap: Partial<
+  Record<ModelProvider | string, string>
+> = {
+  openai: "OPENAI_API_KEY",
+  anthropic: "ANTHROPIC_API_KEY",
+  google: "GOOGLE_GENERATIVE_AI_API_KEY",
+  groq: "GROQ_API_KEY",
+  cerebras: "CEREBRAS_API_KEY",
+  togetherai: "TOGETHER_AI_API_KEY",
+  mistral: "MISTRAL_API_KEY",
+  deepseek: "DEEPSEEK_API_KEY",
+  perplexity: "PERPLEXITY_API_KEY",
+  azure: "AZURE_API_KEY",
+  xai: "XAI_API_KEY",
+};
+
+/**
+ * Loads an API key for a provider, checking environment variables.
+ * @param provider The name of the provider (e.g., 'openai', 'anthropic')
+ * @param logger Optional logger for info/error messages
+ * @returns The API key if found, undefined otherwise
+ */
+export function loadApiKeyFromEnv(
+  provider: string | undefined,
+  logger: (logLine: LogLine) => void,
+): string | undefined {
+  if (!provider) {
+    return undefined;
+  }
+
+  const envVarName = providerEnvVarMap[provider];
+  if (!envVarName) {
+    logger({
+      category: "init",
+      message: `No known environment variable for provider '${provider}'`,
+      level: 0,
+    });
+    return undefined;
+  }
+
+  const apiKeyFromEnv = process.env[envVarName];
+  if (typeof apiKeyFromEnv === "string" && apiKeyFromEnv.length > 0) {
+    return apiKeyFromEnv;
+  }
+
+  logger({
+    category: "init",
+    message: `API key for ${provider} not found in environment variable ${envVarName}`,
+    level: 0,
+  });
+
+  return undefined;
 }
