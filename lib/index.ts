@@ -561,6 +561,7 @@ export class Stagehand {
       }
     }
     let modelApiKey: string | undefined;
+
     if (!modelClientOptions?.apiKey) {
       // If no API key is provided, try to load it from the environment
       if (this.llmClient?.type === "aisdk") {
@@ -572,20 +573,21 @@ export class Stagehand {
         // Temporary add for legacy providers
         modelApiKey =
           LLMProvider.getModelProvider(this.modelName) === "openai"
-            ? process.env.OPENAI_API_KEY ||
-              this.llmClient?.clientOptions?.apiKey
+            ? process.env.OPENAI_API_KEY || this.llmClient.clientOptions?.apiKey
             : LLMProvider.getModelProvider(this.modelName) === "anthropic"
               ? process.env.ANTHROPIC_API_KEY ||
-                this.llmClient?.clientOptions?.apiKey
+                this.llmClient.clientOptions?.apiKey
               : LLMProvider.getModelProvider(this.modelName) === "google"
                 ? process.env.GOOGLE_API_KEY ||
-                  this.llmClient?.clientOptions?.apiKey
+                  this.llmClient.clientOptions?.apiKey
                 : undefined;
       }
       this.modelClientOptions = {
         ...modelClientOptions,
         apiKey: modelApiKey,
       };
+    } else {
+      this.modelClientOptions = modelClientOptions;
     }
 
     this.domSettleTimeoutMs = domSettleTimeoutMs ?? 30_000;
