@@ -541,30 +541,11 @@ export class Stagehand {
     this.stagehandLogger.setVerbosity(this.verbose);
     this.modelName = modelName ?? DEFAULT_MODEL_NAME;
 
-    if (llmClient) {
-      this.llmClient = llmClient;
-    } else {
-      try {
-        // try to set a default LLM client
-        this.llmClient = this.llmProvider.getClient(
-          this.modelName,
-          modelClientOptions,
-        );
-      } catch (error) {
-        if (
-          error instanceof UnsupportedAISDKModelProviderError ||
-          error instanceof InvalidAISDKModelFormatError
-        ) {
-          throw error;
-        }
-        this.llmClient = undefined;
-      }
-    }
     let modelApiKey: string | undefined;
 
     if (!modelClientOptions?.apiKey) {
       // If no API key is provided, try to load it from the environment
-      if (this.llmClient?.type === "aisdk") {
+      if (LLMProvider.getModelProvider(this.modelName) === "aisdk") {
         modelApiKey = loadApiKeyFromEnv(
           this.modelName.split("/")[0],
           this.logger,
@@ -588,6 +569,26 @@ export class Stagehand {
       };
     } else {
       this.modelClientOptions = modelClientOptions;
+    }
+
+    if (llmClient) {
+      this.llmClient = llmClient;
+    } else {
+      try {
+        // try to set a default LLM client
+        this.llmClient = this.llmProvider.getClient(
+          this.modelName,
+          this.modelClientOptions,
+        );
+      } catch (error) {
+        if (
+          error instanceof UnsupportedAISDKModelProviderError ||
+          error instanceof InvalidAISDKModelFormatError
+        ) {
+          throw error;
+        }
+        this.llmClient = undefined;
+      }
     }
 
     this.domSettleTimeoutMs = domSettleTimeoutMs ?? 30_000;
