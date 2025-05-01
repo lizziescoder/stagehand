@@ -553,8 +553,7 @@ export class Stagehand {
       } catch (error) {
         if (
           error instanceof UnsupportedAISDKModelProviderError ||
-          error instanceof InvalidAISDKModelFormatError ||
-          error instanceof UnsupportedModelError
+          error instanceof InvalidAISDKModelFormatError
         ) {
           throw error;
         }
