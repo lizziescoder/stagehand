@@ -572,13 +572,14 @@ export class Stagehand {
         // Temporary add for legacy providers
         modelApiKey =
           LLMProvider.getModelProvider(this.modelName) === "openai"
-            ? process.env.OPENAI_API_KEY || this.llmClient.clientOptions.apiKey
+            ? process.env.OPENAI_API_KEY ||
+              this.llmClient?.clientOptions?.apiKey
             : LLMProvider.getModelProvider(this.modelName) === "anthropic"
               ? process.env.ANTHROPIC_API_KEY ||
-                this.llmClient.clientOptions.apiKey
+                this.llmClient?.clientOptions?.apiKey
               : LLMProvider.getModelProvider(this.modelName) === "google"
                 ? process.env.GOOGLE_API_KEY ||
-                  this.llmClient.clientOptions.apiKey
+                  this.llmClient?.clientOptions?.apiKey
                 : undefined;
       }
       this.modelClientOptions = {
