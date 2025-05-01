@@ -24,6 +24,7 @@ import { StagehandAPI } from "./api";
 import { scriptContent } from "./dom/build/scriptContent";
 import { LLMClient } from "./llm/LLMClient";
 import { LLMProvider } from "./llm/LLMProvider";
+import { ClientOptions } from "../types/model";
 import { isRunningInBun } from "./utils";
 import { ApiResponse, ErrorResponse } from "@/types/api";
 import { AgentExecuteOptions, AgentResult } from "../types/agent";
@@ -389,6 +390,7 @@ export class Stagehand {
   public readonly logInferenceToFile?: boolean;
   private stagehandLogger: StagehandLogger;
   private disablePino: boolean;
+  private modelClientOptions: ClientOptions;
   private _env: "LOCAL" | "BROWSERBASE";
 
   protected setActivePage(page: StagehandPage): void {
@@ -558,6 +560,7 @@ export class Stagehand {
       }
     }
 
+    this.modelClientOptions = modelClientOptions;
     this.domSettleTimeoutMs = domSettleTimeoutMs ?? 30_000;
     this.headless = localBrowserLaunchOptions?.headless ?? false;
     this.browserbaseSessionCreateParams = browserbaseSessionCreateParams;
@@ -577,10 +580,11 @@ export class Stagehand {
       this.llmClient &&
       this.llmClient.type !== "openai" &&
       this.llmClient.type !== "anthropic" &&
-      this.llmClient.type !== "google"
+      this.llmClient.type !== "google" &&
+      this.llmClient.type !== "aisdk"
     ) {
       throw new UnsupportedModelError(
-        ["openai", "anthropic", "google"],
+        ["openai", "anthropic", "google", "aisdk"],
         "API mode",
       );
     }
@@ -667,16 +671,8 @@ export class Stagehand {
         logger: this.logger,
       });
 
-      const modelApiKey =
-        LLMProvider.getModelProvider(this.modelName) === "openai"
-          ? process.env.OPENAI_API_KEY || this.llmClient.clientOptions.apiKey
-          : LLMProvider.getModelProvider(this.modelName) === "anthropic"
-            ? process.env.ANTHROPIC_API_KEY ||
-              this.llmClient.clientOptions.apiKey
-            : LLMProvider.getModelProvider(this.modelName) === "google"
-              ? process.env.GOOGLE_API_KEY ||
-                this.llmClient.clientOptions.apiKey
-              : undefined;
+      console.log(this.modelClientOptions);
+      const modelApiKey = this.modelClientOptions?.apiKey;
 
       const { sessionId } = await this.apiClient.init({
         modelName: this.modelName,
