@@ -563,7 +563,7 @@ export class Stagehand {
     let modelApiKey: string | undefined;
     if (!modelClientOptions?.apiKey) {
       // If no API key is provided, try to load it from the environment
-      if (this.llmClient.type === "aisdk") {
+      if (this.llmClient?.type === "aisdk") {
         modelApiKey = loadApiKeyFromEnv(
           this.modelName.split("/")[0],
           this.logger,
