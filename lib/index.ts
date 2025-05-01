@@ -557,10 +557,10 @@ export class Stagehand {
             ? process.env.OPENAI_API_KEY || this.llmClient.clientOptions?.apiKey
             : LLMProvider.getModelProvider(this.modelName) === "anthropic"
               ? process.env.ANTHROPIC_API_KEY ||
-                this.llmClient.clientOptions?.apiKey
+                this.llmClient?.clientOptions?.apiKey
               : LLMProvider.getModelProvider(this.modelName) === "google"
                 ? process.env.GOOGLE_API_KEY ||
-                  this.llmClient.clientOptions?.apiKey
+                  this.llmClient?.clientOptions?.apiKey
                 : undefined;
       }
       this.modelClientOptions = {
