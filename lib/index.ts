@@ -548,7 +548,7 @@ export class Stagehand {
         // try to set a default LLM client
         this.llmClient = this.llmProvider.getClient(
           this.modelName,
-          this.modelClientOptions,
+          modelClientOptions,
         );
       } catch (error) {
         if (
