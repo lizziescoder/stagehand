@@ -1,5 +1,5 @@
 import { Browserbase } from "@browserbasehq/sdk";
-import { chromium } from "@playwright/test";
+import { Browser, chromium } from "@playwright/test";
 import dotenv from "dotenv";
 import fs from "fs";
 import os from "os";
@@ -312,6 +312,8 @@ async function getBrowser(
     if (localBrowserLaunchOptions?.cookies) {
       context.addCookies(localBrowserLaunchOptions.cookies);
     }
+    // This will always be when null launched with chromium.launchPersistentContext, but not when connected over CDP to an existing browser
+    const browser = context.browser();
 
     logger({
       category: "init",
@@ -320,7 +322,7 @@ async function getBrowser(
 
     await applyStealthScripts(context);
 
-    return { context, contextPath: userDataDir, env: "LOCAL" };
+    return { browser, context, contextPath: userDataDir, env: "LOCAL" };
   }
 }
 
@@ -392,7 +394,7 @@ export class Stagehand {
   private disablePino: boolean;
   private modelClientOptions: ClientOptions;
   private _env: "LOCAL" | "BROWSERBASE";
-
+  private _browser: Browser | undefined;
   protected setActivePage(page: StagehandPage): void {
     this.stagehandPage = page;
   }
@@ -715,7 +717,7 @@ export class Stagehand {
       this.browserbaseSessionID = sessionId;
     }
 
-    const { context, debugUrl, sessionUrl, contextPath, sessionId } =
+    const { browser, context, debugUrl, sessionUrl, contextPath, sessionId } =
       await getBrowser(
         this.apiKey,
         this.projectId,
@@ -737,7 +739,7 @@ export class Stagehand {
         return br;
       });
     this.contextPath = contextPath;
-
+    this._browser = browser;
     this.stagehandContext = await StagehandContext.init(context, this);
 
     const defaultPage = (await this.stagehandContext.getStagehandPages())[0];
@@ -788,6 +790,9 @@ export class Stagehand {
       return;
     } else {
       await this.context.close();
+      if (this._browser) {
+        await this._browser.close();
+      }
     }
 
     if (this.contextPath) {
