@@ -29,7 +29,7 @@ import { mistral, createMistral } from "@ai-sdk/mistral";
 import { deepseek, createDeepSeek } from "@ai-sdk/deepseek";
 import { perplexity, createPerplexity } from "@ai-sdk/perplexity";
 import { ollama } from "ollama-ai-provider";
-import { AISDKProvider, AISDKCreator } from "@/types/llm";
+import { AISDKProvider, AISDKCustomProvider } from "@/types/llm";
 
 const AISDKProviders: Record<string, AISDKProvider> = {
   openai,
@@ -45,7 +45,7 @@ const AISDKProviders: Record<string, AISDKProvider> = {
   perplexity,
   ollama,
 };
-const AISDKProvidersWithAPIKey: Record<string, AISDKCreator> = {
+const AISDKProvidersWithAPIKey: Record<string, AISDKCustomProvider> = {
   openai: createOpenAI,
   anthropic: createAnthropic,
   google: createGoogleGenerativeAI,
@@ -92,6 +92,35 @@ const modelToProviderMap: { [key in AvailableModel]: ModelProvider } = {
   "gemini-2.5-flash-preview-04-17": "google",
   "gemini-2.5-pro-preview-03-25": "google",
 };
+
+function getAISDKLanguageModel(
+  subProvider: string,
+  subModelName: string,
+  apiKey?: string,
+) {
+  if (apiKey) {
+    const creator = AISDKProvidersWithAPIKey[subProvider];
+    if (!creator) {
+      throw new UnsupportedAISDKModelProviderError(
+        subProvider,
+        Object.keys(AISDKProvidersWithAPIKey),
+      );
+    }
+    // Create the provider instance with the API key
+    const provider = creator({ apiKey });
+    // Get the specific model from the provider
+    return provider(subModelName);
+  } else {
+    const provider = AISDKProviders[subProvider];
+    if (!provider) {
+      throw new UnsupportedAISDKModelProviderError(
+        subProvider,
+        Object.keys(AISDKProviders),
+      );
+    }
+    return provider(subModelName);
+  }
+}
 
 export class LLMProvider {
   private logger: (message: LogLine) => void;
@@ -144,35 +173,6 @@ export class LLMProvider {
         enableCaching: this.enableCaching,
         cache: this.cache,
       });
-    }
-
-    function getAISDKLanguageModel(
-      subProvider: string,
-      subModelName: string,
-      apiKey?: string,
-    ) {
-      if (apiKey) {
-        const creator = AISDKProvidersWithAPIKey[subProvider];
-        if (!creator) {
-          throw new UnsupportedAISDKModelProviderError(
-            subProvider,
-            Object.keys(AISDKProvidersWithAPIKey),
-          );
-        }
-        // Create the provider instance with the API key
-        const provider = creator({ apiKey });
-        // Get the specific model from the provider
-        return provider(subModelName);
-      } else {
-        const provider = AISDKProviders[subProvider];
-        if (!provider) {
-          throw new UnsupportedAISDKModelProviderError(
-            subProvider,
-            Object.keys(AISDKProviders),
-          );
-        }
-        return provider(subModelName);
-      }
     }
 
     const provider = modelToProviderMap[modelName];
@@ -229,8 +229,14 @@ export class LLMProvider {
   }
 
   static getModelProvider(modelName: AvailableModel): ModelProvider {
+    if (modelName.includes("/")) {
+      const firstSlashIndex = modelName.indexOf("/");
+      const subProvider = modelName.substring(0, firstSlashIndex);
+      if (AISDKProviders[subProvider]) {
+        return "aisdk";
+      }
+    }
     const provider = modelToProviderMap[modelName];
-
     return provider;
   }
 }

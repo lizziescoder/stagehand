@@ -699,7 +699,6 @@ export class Stagehand {
       });
 
       const modelApiKey = this.modelClientOptions?.apiKey;
-
       const { sessionId } = await this.apiClient.init({
         modelName: this.modelName,
         modelApiKey: modelApiKey,
