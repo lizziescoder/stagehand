@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { z } from "zod";
+import { ZodFirstPartyTypeKind as Kind, z } from "zod";
 import { ObserveResult, Page } from ".";
 import { LogLine } from "../types/log";
 import { ZodPathSegments } from "../types/stagehand";
@@ -583,9 +583,11 @@ export function transformSchema(
   currentPath: Array<string | number>,
 ): [z.ZodTypeAny, ZodPathSegments[]] {
   // 1) If it's a string with .url(), convert to z.number()
-  if (schema instanceof z.ZodString) {
+  if (isKind(schema, Kind.ZodString)) {
     const hasUrlCheck =
-      schema._def.checks?.some((check) => check.kind === "url") ?? false;
+      schema._def.checks?.some(
+        (check: { kind: string }) => check.kind === "url",
+      ) ?? false;
     if (hasUrlCheck) {
       return [
         z.number().describe("ID of element that points to a URL"),
@@ -596,7 +598,7 @@ export function transformSchema(
   }
 
   // 2) If it's an object, transform each field
-  if (schema instanceof z.ZodObject) {
+  if (isKind(schema, Kind.ZodObject)) {
     // The shape is a raw object containing fields keyed by string (no symbols):
     const shape = schema._def.shape() as Record<string, z.ZodTypeAny>;
     const newShape: Record<string, z.ZodTypeAny> = {};
@@ -631,7 +633,7 @@ export function transformSchema(
   }
 
   // 3) If it's an array, transform its item type
-  if (schema instanceof z.ZodArray) {
+  if (isKind(schema, Kind.ZodArray)) {
     const itemType = schema._def.type as z.ZodTypeAny;
     const [transformedItem, childPaths] = transformSchema(itemType, [
       ...currentPath,
@@ -649,7 +651,7 @@ export function transformSchema(
   }
 
   // 4) If it's a union, transform each option
-  if (schema instanceof z.ZodUnion) {
+  if (isKind(schema, Kind.ZodUnion)) {
     // Cast the union’s options to an array of ZodTypeAny
     const unionOptions = schema._def.options as z.ZodTypeAny[];
     const newOptions: z.ZodTypeAny[] = [];
@@ -679,7 +681,7 @@ export function transformSchema(
   }
 
   // 5) If it's an intersection, transform left and right
-  if (schema instanceof z.ZodIntersection) {
+  if (isKind(schema, Kind.ZodIntersection)) {
     const leftType = schema._def.left as z.ZodTypeAny;
     const rightType = schema._def.right as z.ZodTypeAny;
 
@@ -700,7 +702,7 @@ export function transformSchema(
   }
 
   // 6) If it's optional, transform inner
-  if (schema instanceof z.ZodOptional) {
+  if (isKind(schema, Kind.ZodOptional)) {
     const innerType = schema._def.innerType as z.ZodTypeAny;
     const [inner, innerPaths] = transformSchema(innerType, currentPath);
     if (inner !== innerType) {
@@ -710,7 +712,7 @@ export function transformSchema(
   }
 
   // 7) If it's nullable, transform inner
-  if (schema instanceof z.ZodNullable) {
+  if (isKind(schema, Kind.ZodNullable)) {
     const innerType = schema._def.innerType as z.ZodTypeAny;
     const [inner, innerPaths] = transformSchema(innerType, currentPath);
     if (inner !== innerType) {
@@ -720,7 +722,7 @@ export function transformSchema(
   }
 
   // 8) If it's an effect, transform base schema
-  if (schema instanceof z.ZodEffects) {
+  if (isKind(schema, Kind.ZodEffects)) {
     const baseSchema = schema._def.schema as z.ZodTypeAny;
     const [newBaseSchema, basePaths] = transformSchema(baseSchema, currentPath);
     if (newBaseSchema !== baseSchema) {
@@ -768,4 +770,8 @@ export function injectUrls(
       injectUrls(record[key], rest, idToUrlMapping);
     }
   }
+}
+
+function isKind(s: z.ZodTypeAny, kind: Kind): boolean {
+  return (s as z.ZodTypeAny)._def.typeName === kind;
 }
