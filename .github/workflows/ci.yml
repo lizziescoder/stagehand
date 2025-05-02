@@ -65,7 +65,7 @@ jobs:
       - name: Install dependencies
         run: |
           rm -rf node_modules
-          rm -f package-lock.json
+          npm i -g pnpm
           pnpm install
 
       - name: Run Lint
@@ -85,7 +85,7 @@ jobs:
       - name: Install dependencies
         run: |
           rm -rf node_modules
-          rm -f package-lock.json
+          npm i -g pnpm
           pnpm install
 
       - name: Run Build
@@ -109,7 +109,7 @@ jobs:
       - name: Install dependencies
         run: |
           rm -rf node_modules
-          rm -f package-lock.json
+          npm i -g pnpm
           pnpm install
 
       - name: Install Playwright browsers
@@ -139,7 +139,7 @@ jobs:
       - name: Install dependencies
         run: |
           rm -rf node_modules
-          rm -f package-lock.json
+          npm i -g pnpm
           pnpm install
 
       - name: Install Playwright browsers
@@ -177,7 +177,7 @@ jobs:
       - name: Install dependencies
         run: |
           rm -rf node_modules
-          rm -f package-lock.json
+          npm i -g pnpm
           pnpm install
 
       - name: Install Playwright browsers
@@ -217,7 +217,7 @@ jobs:
       - name: Install dependencies
         run: |
           rm -rf node_modules
-          rm -f package-lock.json
+          npm i -g pnpm
           pnpm install
 
       - name: Build Stagehand
@@ -282,7 +282,7 @@ jobs:
         if: needs.determine-evals.outputs.run-combination == 'true'
         run: |
           rm -rf node_modules
-          rm -f package-lock.json
+          npm i -g pnpm
           pnpm install
 
       - name: Build Stagehand
@@ -348,7 +348,7 @@ jobs:
         if: needs.determine-evals.outputs.run-act == 'true'
         run: |
           rm -rf node_modules
-          rm -f package-lock.json
+          npm i -g pnpm
           pnpm install
 
       - name: Build Stagehand
@@ -417,7 +417,7 @@ jobs:
         if: needs.determine-evals.outputs.run-extract == 'true'
         run: |
           rm -rf node_modules
-          rm -f package-lock.json
+          npm i -g pnpm
           pnpm install
 
       - name: Build Stagehand
@@ -503,7 +503,7 @@ jobs:
         if: needs.determine-evals.outputs.run-text-extract == 'true'
         run: |
           rm -rf node_modules
-          rm -f package-lock.json
+          npm i -g pnpm
           pnpm install
 
       - name: Install Playwright browsers
@@ -573,7 +573,7 @@ jobs:
         if: needs.determine-evals.outputs.run-observe == 'true'
         run: |
           rm -rf node_modules
-          rm -f package-lock.json
+          npm i -g pnpm
           pnpm install
 
       - name: Install Playwright browsers
@@ -642,7 +642,7 @@ jobs:
         if: needs.determine-evals.outputs.run-targeted-extract == 'true'
         run: |
           rm -rf node_modules
-          rm -f package-lock.json
+          npm i -g pnpm
           pnpm install
 
       - name: Install Playwright browsers
