@@ -40,9 +40,7 @@
     "release-canary": "pnpm run build && changeset version --snapshot && changeset publish --tag alpha"
   },
   "files": [
-    "dist/**",
-    "lib/**",
-    "examples/**"
+    "dist/**"
   ],
   "keywords": [],
   "author": "Browserbase",
