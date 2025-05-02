@@ -311,7 +311,7 @@ async function getBrowser(
     if (localBrowserLaunchOptions?.cookies) {
       context.addCookies(localBrowserLaunchOptions.cookies);
     }
-    // This will always be when launched with chromium.launchPersistentContext, but not when connected over CDP to an existing browser
+    // This will always be when null launched with chromium.launchPersistentContext, but not when connected over CDP to an existing browser
     const browser = context.browser();
 
     logger({
