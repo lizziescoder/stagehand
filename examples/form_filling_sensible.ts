@@ -26,7 +26,7 @@ async function formFillingSensible() {
 
   // Observe the form fields with suggested actions
   const observed = await page.observe(
-    "fill all the form fields in the page with mock data. In the description inlcude the field name",
+    "fill all the form fields in the page with mock data. In the description include the field name",
   );
 
   // Uncomment the following snippet to see the stagehand candidate suggestions (initial)
