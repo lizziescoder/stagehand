@@ -7,6 +7,9 @@
  * - Previewing actions before running them
  * - Saving actions to a file and replaying them later
  * - Hiding sensitive information from LLMs
+ *
+ * For more on caching, see: https://docs.stagehand.dev/examples/caching
+ * Also check out the form_filling_sensible.ts example for a more complex example of using observe() to fill out a form.
  */
 
 import { ObserveResult, Stagehand } from "@browserbasehq/stagehand";

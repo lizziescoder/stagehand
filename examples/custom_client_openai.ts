@@ -2,6 +2,8 @@
  * This example shows how to use a custom OpenAI client with Stagehand.
  *
  * The OpenAI API provides a simple, type-safe, and composable way to build AI applications.
+ *
+ * You will need to reference the Custom OpenAI Client in /external_clients/customOpenAI.ts
  */
 import { Stagehand } from "@/dist";
 import { z } from "zod";

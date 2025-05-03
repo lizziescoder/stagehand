@@ -1,7 +1,7 @@
 /**
  * This example shows how to use the Langchain client with Stagehand.
  *
- * To learn more about the Langchain client, see: https://docs.langchain.com/
+ * You will need to reference the Langchain Client in /external_clients/langchain.ts
  */
 import { z } from "zod";
 import { Stagehand } from "@browserbasehq/stagehand";

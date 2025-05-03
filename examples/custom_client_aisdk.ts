@@ -1,7 +1,7 @@
 /**
  * This example shows how to use the Vercel AI SDK to power the Stagehand LLM Client.
  *
- * The Vercel AI SDK provides simple, type-safe, and composable way to build AI applications.
+ * You will need to reference the AI SDK Client in /external_clients/aisdk.ts
  *
  * To learn more about the Vercel AI SDK, see: https://sdk.vercel.ai/docs
  */
