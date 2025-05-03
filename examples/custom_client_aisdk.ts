@@ -7,7 +7,7 @@
  */
 import { Stagehand } from "@browserbasehq/stagehand";
 import StagehandConfig from "@/stagehand.config";
-import { AISdkClient } from "@/external_clients/aisdk";
+import { AISdkClient } from "@/examples/external_clients/aisdk";
 import { z } from "zod";
 import { openai } from "@ai-sdk/openai";
 

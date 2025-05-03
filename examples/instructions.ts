@@ -1,7 +1,7 @@
 /**
  * This example shows how to use custom system prompts with Stagehand.
  */
-import { Stagehand } from "@/dist";
+import { Stagehand } from "@browserbasehq/stagehand";
 import StagehandConfig from "@/stagehand.config";
 
 async function example() {
