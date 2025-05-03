@@ -172,7 +172,11 @@ importers:
 
   evals: {}
 
-  examples: {}
+  examples:
+    devDependencies:
+      tsx:
+        specifier: ^4.10.5
+        version: 4.19.4
 
   lib: {}
 

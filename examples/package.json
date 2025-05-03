@@ -7,5 +7,8 @@
   "scripts": {
     "build": "pnpm --filter @browserbasehq/stagehand run build",
     "start": "pnpm run build && tsx example.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.10.5"
   }
 }
