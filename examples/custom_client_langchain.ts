@@ -1,7 +1,12 @@
+/**
+ * This example shows how to use the Langchain client with Stagehand.
+ *
+ * To learn more about the Langchain client, see: https://docs.langchain.com/
+ */
 import { z } from "zod";
-import { Stagehand } from "@/dist";
+import { Stagehand } from "@browserbasehq/stagehand";
 import StagehandConfig from "@/stagehand.config";
-import { LangchainClient } from "./external_clients/langchain";
+import { LangchainClient } from "@/external_clients/langchain";
 import { ChatOpenAI } from "@langchain/openai";
 
 async function example() {

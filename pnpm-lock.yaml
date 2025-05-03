@@ -173,6 +173,10 @@ importers:
   evals: {}
 
   examples:
+    dependencies:
+      '@browserbasehq/stagehand':
+        specifier: workspace:*
+        version: link:..
     devDependencies:
       tsx:
         specifier: ^4.10.5

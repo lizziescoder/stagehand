@@ -1,6 +1,11 @@
+/**
+ * This example shows how to use a custom OpenAI client with Stagehand.
+ *
+ * The OpenAI API provides a simple, type-safe, and composable way to build AI applications.
+ */
 import { Stagehand } from "@/dist";
 import { z } from "zod";
-import { CustomOpenAIClient } from "./external_clients/customOpenAI";
+import { CustomOpenAIClient } from "../external_clients/customOpenAI";
 import StagehandConfig from "@/stagehand.config";
 import OpenAI from "openai";
 
@@ -14,12 +19,13 @@ async function example() {
       }),
     }),
   });
-
   await stagehand.init();
-  await stagehand.page.goto("https://news.ycombinator.com");
-  await stagehand.page.act("click on the 'new' link");
 
-  const headlines = await stagehand.page.extract({
+  const page = stagehand.page;
+  await page.goto("https://news.ycombinator.com");
+  await page.act("click on the 'new' link");
+
+  const headlines = await page.extract({
     instruction: "Extract the top 3 stories from the Hacker News homepage.",
     schema: z.object({
       stories: z.array(
