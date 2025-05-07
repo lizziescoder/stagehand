@@ -74,17 +74,16 @@ export class StagehandExtractHandler {
           "Warning: the `useTextExtract` parameter has no effect in this version of Stagehand and will be removed in future versions.",
         level: 1,
       });
-    } else {
-      return this.domExtract({
-        instruction,
-        schema,
-        content,
-        llmClient,
-        requestId,
-        domSettleTimeoutMs,
-        selector,
-      });
     }
+    return this.domExtract({
+      instruction,
+      schema,
+      content,
+      llmClient,
+      requestId,
+      domSettleTimeoutMs,
+      selector,
+    });
   }
 
   private async extractPageText(
