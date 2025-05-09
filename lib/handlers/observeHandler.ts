@@ -76,7 +76,7 @@ export class StagehandObserveHandler {
       this.logger({
         category: "observation",
         message:
-          "Warning: the `onlyVisible` {remove this} parameter has no effect in this version of Stagehand and will be removed in future versions.",
+          "Warning: the `onlyVisible` parameter has no effect in this version of Stagehand and will be removed in future versions.",
         level: 1,
       });
     }
