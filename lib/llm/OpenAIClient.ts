@@ -22,10 +22,10 @@ import {
   LLMResponse,
 } from "./LLMClient";
 import {
-  CreateChatCompletionResponseValidationError,
+  CreateChatCompletionResponseError,
   StagehandError,
+  ZodSchemaValidationError,
 } from "@/types/stagehandErrors";
-import { validateZodSchemaWithResult } from "@/types/zod";
 
 export class OpenAIClient extends LLMClient {
   public type = "openai" as const;
@@ -412,12 +412,14 @@ export class OpenAIClient extends LLMClient {
       const extractedData = response.choices[0].message.content;
       const parsedData = JSON.parse(extractedData);
 
-      const validationResult = validateZodSchemaWithResult(
-        options.response_model.schema,
-        parsedData,
-      );
-
-      if (!validationResult.success) {
+      try {
+        validateZodSchema(options.response_model.schema, parsedData);
+      } catch (e) {
+        logger({
+          category: "openai",
+          message: "Response failed Zod schema validation",
+          level: 0,
+        });
         if (retries > 0) {
           // as-casting to account for o1 models not supporting all options
           return this.createChatCompletion({
@@ -427,9 +429,22 @@ export class OpenAIClient extends LLMClient {
           });
         }
 
-        throw new CreateChatCompletionResponseValidationError(
-          validationResult.error,
-        );
+        if (e instanceof ZodSchemaValidationError) {
+          logger({
+            category: "openai",
+            message: `Error during OpenAI chat completion: ${e.message}`,
+            level: 0,
+            auxiliary: {
+              errorDetails: {
+                value: `Message: ${e.message}${e.stack ? "\nStack: " + e.stack : ""}`,
+                type: "string",
+              },
+              requestId: { value: requestId, type: "string" },
+            },
+          });
+          throw new CreateChatCompletionResponseError(e.message);
+        }
+        throw e;
       }
 
       if (this.enableCaching) {

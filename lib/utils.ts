@@ -6,6 +6,7 @@ import { ZodPathSegments } from "../types/stagehand";
 import { TextAnnotation } from "../types/textannotation";
 import { Schema, Type } from "@google/genai";
 import { ModelProvider } from "../types/model";
+import { ZodSchemaValidationError } from "@/types/stagehandErrors";
 
 // This is a heuristic for the width of a character in pixels. It seems to work
 // better than attempting to calculate character widths dynamically, which sometimes
@@ -371,12 +372,12 @@ export function logLineToString(logLine: LogLine): string {
 }
 
 export function validateZodSchema(schema: z.ZodTypeAny, data: unknown) {
-  try {
-    schema.parse(data);
+  const result = schema.safeParse(data);
+
+  if (result.success) {
     return true;
-  } catch {
-    return false;
   }
+  throw new ZodSchemaValidationError(data, result.error.format());
 }
 
 export async function drawObserveOverlay(page: Page, results: ObserveResult[]) {
