@@ -7,6 +7,8 @@ on:
       - synchronize
       - labeled
       - unlabeled
+    paths:
+      - "!docs/**"
 
 env:
   EVAL_MODELS: "gpt-4.1,gemini-2.0-flash,claude-3-5-sonnet-latest"
@@ -19,25 +21,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  docs-only:
-    runs-on: ubuntu-latest
-    outputs:
-      docs_only: ${{ steps.check.outputs.docs_only }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - id: check
-        run: |
-          non_docs=$(git diff --name-only \
-                      ${{ github.event.pull_request.base.sha }} \
-                      ${{ github.event.pull_request.head.sha }} \
-                    | grep -vE '^docs(/|$)' | wc -l)
-          echo "docs_only=$([ "$non_docs" -eq 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-
   determine-evals:
-    needs: docs-only
-    if: needs.docs-only.outputs.docs_only == 'false'
     runs-on: ubuntu-latest
     outputs:
       run-combination: ${{ steps.check-labels.outputs.run-combination }}
@@ -70,8 +54,6 @@ jobs:
           echo "run-targeted-extract=${{ contains(github.event.pull_request.labels.*.name, 'targeted-extract') }}" >> $GITHUB_OUTPUT
 
   run-lint:
-    needs: docs-only
-    if: needs.docs-only.outputs.docs_only == 'false'
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository code
@@ -92,8 +74,6 @@ jobs:
         run: pnpm run lint
 
   run-build:
-    needs: docs-only
-    if: needs.docs-only.outputs.docs_only == 'false'
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository code
