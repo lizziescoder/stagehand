@@ -3,33 +3,48 @@ import { LogLine } from "@/types/log";
 import {
   OperatorResponse,
   operatorResponseSchema,
-  OperatorSummary,
   operatorSummarySchema,
 } from "@/types/operator";
-import { LLMParsedResponse } from "../inference";
-import { ChatMessage, LLMClient } from "../llm/LLMClient";
+import { LLMClient } from "../llm/LLMClient";
 import { buildOperatorSystemPrompt } from "../prompt";
 import { StagehandPage } from "../StagehandPage";
 import { ObserveResult } from "@/types/stagehand";
-import {
-  StagehandError,
-  StagehandMissingArgumentError,
-} from "@/types/stagehandErrors";
+import { StagehandError } from "@/types/stagehandErrors";
+import { CoreMessage, LanguageModelV1 } from "ai";
+import { LLMProvider } from "../llm/LLMProvider";
+import { getAISDKLanguageModel } from "../llm/LLMProvider";
 
 export class StagehandOperatorHandler {
   private stagehandPage: StagehandPage;
   private logger: (message: LogLine) => void;
   private llmClient: LLMClient;
-  private messages: ChatMessage[];
-
+  private llmProvider: LLMProvider;
+  private messages: CoreMessage[];
+  private model: LanguageModelV1 | LLMClient;
+  private modelName: string;
   constructor(
     stagehandPage: StagehandPage,
     logger: (message: LogLine) => void,
     llmClient: LLMClient,
+    llmProvider: LLMProvider,
+    modelName: string,
   ) {
     this.stagehandPage = stagehandPage;
     this.logger = logger;
     this.llmClient = llmClient;
+    this.llmProvider = llmProvider;
+    this.modelName = modelName;
+    console.log("modelName", this.modelName);
+    const firstSlashIndex = this.modelName.indexOf("/");
+    const subProvider = this.modelName.substring(0, firstSlashIndex);
+    const subModelName = this.modelName.substring(firstSlashIndex + 1);
+
+    const languageModel = getAISDKLanguageModel(
+      subProvider,
+      subModelName,
+      this.llmClient.clientOptions?.apiKey,
+    );
+    this.model = languageModel;
   }
 
   public async execute(
@@ -89,20 +104,10 @@ export class StagehandOperatorHandler {
               type: "text",
               text: messageText,
             },
-            this.llmClient.type === "anthropic"
-              ? {
-                  type: "image",
-                  source: {
-                    type: "base64",
-                    media_type: "image/png",
-                    data: base64Image,
-                  },
-                  text: "the screenshot of the current page",
-                }
-              : {
-                  type: "image_url",
-                  image_url: { url: `data:image/png;base64,${base64Image}` },
-                },
+            {
+              type: "image",
+              image: `data:image/png;base64,${base64Image}`,
+            },
           ],
         });
       }
@@ -113,27 +118,18 @@ export class StagehandOperatorHandler {
         completed = true;
       }
 
-      let playwrightArguments: ObserveResult | undefined;
-      if (result.method === "act") {
-        [playwrightArguments] = await this.stagehandPage.page.observe(
-          result.parameters,
-        );
-      }
       let extractionResult: unknown | undefined;
       if (result.method === "extract") {
-        extractionResult = await this.stagehandPage.page.extract(
-          result.parameters,
-        );
+        extractionResult = await this.stagehandPage.extract(result.parameters);
       }
 
-      await this.executeAction(result, playwrightArguments, extractionResult);
+      await this.executeAction(result, extractionResult);
 
       actions.push({
         type: result.method,
         reasoning: result.reasoning,
         taskCompleted: result.taskComplete,
         parameters: result.parameters,
-        playwrightArguments,
         extractionResult,
       });
 
@@ -149,52 +145,44 @@ export class StagehandOperatorHandler {
   }
 
   private async getNextStep(currentStep: number): Promise<OperatorResponse> {
-    const { data: response } =
-      (await this.llmClient.createChatCompletion<OperatorResponse>({
-        options: {
-          messages: this.messages,
-          response_model: {
-            name: "operatorResponseSchema",
-            schema: operatorResponseSchema,
-          },
-          requestId: `operator-step-${currentStep}`,
-        },
-        logger: this.logger,
-      })) as LLMParsedResponse<OperatorResponse>;
-
-    return response;
+    this.logger({
+      category: "agent",
+      message: `step ${currentStep}`,
+      level: 1,
+    });
+    const response = await this.llmClient.generateObject({
+      messages: this.messages,
+      schema: operatorResponseSchema,
+      model: this.model as LanguageModelV1,
+    });
+    console.log("response", response);
+    return response.object as OperatorResponse;
   }
 
   private async getSummary(goal: string): Promise<string> {
-    const { data: response } =
-      (await this.llmClient.createChatCompletion<OperatorSummary>({
-        options: {
-          messages: [
-            ...this.messages,
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: `Now use the steps taken to answer the original instruction of ${goal}.`,
-                },
-              ],
-            },
-          ],
-          response_model: {
-            name: "operatorSummarySchema",
-            schema: operatorSummarySchema,
-          },
-          requestId: "operator-summary",
+    this.messages.push({
+      role: "user",
+      content: [
+        {
+          type: "text",
+          text: `Now use the steps taken to answer the original instruction of ${goal}.`,
         },
-        logger: this.logger,
-      })) as LLMParsedResponse<OperatorSummary>;
-
-    return response.answer;
+      ],
+    });
+    const response = await this.llmClient.generateObject({
+      messages: this.messages,
+      schema: operatorSummarySchema,
+      model: this.model as LanguageModelV1,
+    });
+    const answer = response.object.answer;
+    if (!answer) {
+      throw new StagehandError("Error in OperatorHandler: No answer provided.");
+    }
+    return answer;
   }
+
   private async executeAction(
     action: OperatorResponse,
-    playwrightArguments?: ObserveResult,
     extractionResult?: unknown,
   ): Promise<unknown> {
     const { method, parameters } = action;
@@ -206,13 +194,7 @@ export class StagehandOperatorHandler {
 
     switch (method) {
       case "act":
-        if (!playwrightArguments) {
-          throw new StagehandMissingArgumentError(
-            "No arguments provided to `act()`. " +
-              "Please ensure that all required arguments are passed in.",
-          );
-        }
-        await page.act(playwrightArguments);
+        await page.act(action.parameters);
         break;
       case "extract":
         if (!extractionResult) {
@@ -238,5 +220,6 @@ export class StagehandOperatorHandler {
           `Error in OperatorHandler: Cannot execute unknown action: ${method}`,
         );
     }
+    await this.stagehandPage._waitForSettledDom();
   }
 }

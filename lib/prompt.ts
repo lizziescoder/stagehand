@@ -1,5 +1,5 @@
 import { ChatMessage } from "./llm/LLMClient";
-
+import { CoreMessage } from "ai";
 export function buildUserInstructionsString(
   userProvidedInstructions?: string,
 ): string {
@@ -178,7 +178,7 @@ export function buildActObservePrompt(
   return instruction;
 }
 
-export function buildOperatorSystemPrompt(goal: string): ChatMessage {
+export function buildOperatorSystemPrompt(goal: string): CoreMessage {
   return {
     role: "system",
     content: `You are a general-purpose agent whose job is to accomplish the user's goal across multiple model calls by running actions on the page.
