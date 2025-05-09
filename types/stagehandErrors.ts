@@ -1,3 +1,5 @@
+import { ZodValidationError } from "./zod";
+
 export class StagehandError extends Error {
   constructor(message: string) {
     super(message);
@@ -149,6 +151,12 @@ export class StagehandMissingArgumentError extends StagehandError {
 export class CreateChatCompletionResponseError extends StagehandError {
   constructor(message: string) {
     super(`CreateChatCompletionResponseError: ${message}`);
+  }
+}
+
+export class CreateChatCompletionResponseValidationError extends StagehandError {
+  constructor(message: ZodValidationError) {
+    super(`ResponseValidationError: ${message.format()}`);
   }
 }
 
