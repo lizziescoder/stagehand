@@ -23,6 +23,22 @@ Your output schema will look like:
 { price: number }
 ```
 
+### `extract` a link
+<Note>To extract links or URLs, the relevant field in your schema needs to be defined using `z.string().url()`. See the snippet below: </Note>
+
+Here is how an `extract` call might look for extracting a link or URL.
+```javascript
+  const extraction = await stagehand.page.extract({
+    instruction: "extract the link to the 'contact us' page",
+    schema: z.object({
+      link: z.string().url(),
+    }),
+  });
+
+  console.log("the link to the contact us page is: ", extraction.link);
+```
+
+
 ### `extract` a list of objects
 
 Here is how an `extract` call might look for a list of objects. Note that you need to wrap the `z.array` in an outer `z.object`.
