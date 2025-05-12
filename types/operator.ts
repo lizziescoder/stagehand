@@ -1,3 +1,4 @@
+// TODO: Remove entirely, change to agent type. 
 import { z } from "zod";
 
 export const operatorResponseSchema = z.object({

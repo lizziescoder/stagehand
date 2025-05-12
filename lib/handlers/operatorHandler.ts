@@ -1,16 +1,14 @@
 /* eslint-disable */
-import { AgentAction, AgentExecuteOptions, AgentResult } from "@/types/agent";
+import { AgentExecuteOptions, AgentResult } from "@/types/agent";
 import { LogLine } from "@/types/log";
-// import { ActResult } from "@/types/stagehand";
 import {
   OperatorResponse,
   operatorResponseSchema,
   operatorSummarySchema,
 } from "@/types/operator";
 import { LLMClient } from "../llm/LLMClient";
-import { buildOperatorSystemPrompt, PLANNER_PROMPT } from "../prompt";
+import { PLANNER_PROMPT } from "../prompt";
 import { StagehandPage } from "../StagehandPage";
-// import { ObserveResult } from "@/types/stagehand";
 import { StagehandError } from "@/types/stagehandErrors";
 import { CoreMessage, LanguageModelV1 } from "ai";
 import { LLMProvider } from "../llm/LLMProvider";
@@ -18,7 +16,6 @@ import { getAISDKLanguageModel } from "../llm/LLMProvider";
 import { google } from "@ai-sdk/google";
 import { z } from "zod";
 import { WORKER_PROMPT } from "../prompt";
-import { UserContent } from "ai";
 
 const PlannerLLM = google("gemini-2.5-flash-preview-04-17");
 const WorkerLLM = google("gemini-2.0-flash");
@@ -222,16 +219,15 @@ export class StagehandOperatorHandler {
           text: "Capturing initial screenshot",
           reasoning: "Need visual context of starting state",
           tool: "SCREENSHOT",
-          instruction: "", // Assuming SCREENSHOT tool needs no instruction here
+          instruction: "",
         });
         this.logger({
           category: "operator",
           message: `Initial screenshot captured`,
           level: 2,
         });
-        // ---> Also extract text content after initial screenshot
         try {
-          const textResult = await this.stagehandPage.page.extract(); // Extract without params
+          const textResult = await this.stagehandPage.page.extract();
           currentPageText = textResult.page_text;
           this.logger({
             category: "operator",
@@ -244,9 +240,8 @@ export class StagehandOperatorHandler {
             message: `Failed to extract initial page text: ${textExtractError}`,
             level: 0,
           });
-          currentPageText = null; // Ensure it's null if extraction fails
+          currentPageText = null;
         }
-        // <--- End text extraction
       } catch (e) {
         this.logger({
           category: "operator",
@@ -254,7 +249,6 @@ export class StagehandOperatorHandler {
           level: 0,
         });
         lastError = e instanceof Error ? e : new Error(String(e));
-        // Potentially fail fast if screenshot is critical
       }
 
       // Main execution loop
@@ -264,7 +258,6 @@ export class StagehandOperatorHandler {
         retryCount < MAX_RETRIES
       ) {
         try {
-          // 1. Get next step instruction from LLM
           const nextStep = await this._generateNextStepInstruction({
             subtaskId: subtask.id,
             overallGoal,
@@ -366,8 +359,7 @@ export class StagehandOperatorHandler {
               });
               currentPageText = null;
             }
-            // <--- End text extraction
-            continue; // Skip executing the repeated action this iteration
+            continue;
           }
 
           // Add step to history *before* execution (to track attempts)
@@ -375,12 +367,12 @@ export class StagehandOperatorHandler {
 
           // 4. Execute the browser step
           const result = await this._performBrowserAction(nextStep);
-          lastError = null; // Reset last error on successful execution
+          lastError = null;
 
           // 5. Handle results/updates
           if (nextStep.tool === "EXTRACT") {
             extraction = result;
-            previousExtraction = result; // Update for next LLM call
+            previousExtraction = result;
             this.logger({
               category: "operator",
               message: `Extraction result: ${JSON.stringify(extraction)}`,
@@ -410,7 +402,6 @@ export class StagehandOperatorHandler {
                 message: `Captured screenshot after ${nextStep.tool}`,
                 level: 2,
               });
-              // ---> Also extract text content after action screenshot
               try {
                 const textResult = await this.stagehandPage.page.extract();
                 currentPageText = textResult.page_text;
@@ -427,7 +418,6 @@ export class StagehandOperatorHandler {
                 });
                 currentPageText = null;
               }
-              // <--- End text extraction
             } catch (screenshotError) {
               this.logger({
                 category: "operator",
@@ -442,7 +432,6 @@ export class StagehandOperatorHandler {
               message: `Updated screenshot from SCREENSHOT action`,
               level: 2,
             });
-            // ---> Also extract text content after SCREENSHOT action
             try {
               const textResult = await this.stagehandPage.page.extract();
               currentPageText = textResult.page_text;
@@ -459,7 +448,6 @@ export class StagehandOperatorHandler {
               });
               currentPageText = null;
             }
-            // <--- End text extraction
           }
 
           // TODO: Add logic to determine if subtask is implicitly complete based on state/result?
@@ -515,7 +503,6 @@ export class StagehandOperatorHandler {
             });
           }
           await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait before retry
-          // ---> Also extract text content after error retry screenshot
           try {
             const textResult = await this.stagehandPage.page.extract();
             currentPageText = textResult.page_text;
@@ -532,7 +519,6 @@ export class StagehandOperatorHandler {
             });
             currentPageText = null;
           }
-          // <--- End text extraction
         }
       }
 
@@ -783,80 +769,6 @@ export class StagehandOperatorHandler {
       // Potentially add final extraction result here
       // extraction: lastExtractionResult
     };
-  }
-
-  private async getNextStep(currentStep: number): Promise<OperatorResponse> {
-    this.logger({
-      category: "agent",
-      message: `step ${currentStep}`,
-      level: 1,
-    });
-    const response = await this.llmClient.generateObject({
-      messages: this.messages,
-      schema: operatorResponseSchema,
-      model: this.model as LanguageModelV1,
-    });
-    console.log("response", response);
-    return response.object as OperatorResponse;
-  }
-
-  private async getSummary(goal: string): Promise<string> {
-    this.messages.push({
-      role: "user",
-      content: [
-        {
-          type: "text",
-          text: `Now use the steps taken to answer the original instruction of ${goal}.`,
-        },
-      ],
-    });
-    const response = await this.llmClient.generateObject({
-      messages: this.messages,
-      schema: operatorSummarySchema,
-      model: this.model as LanguageModelV1,
-    });
-    const answer = response.object.answer;
-    if (!answer) {
-      throw new StagehandError("Error in OperatorHandler: No answer provided.");
-    }
-    return answer;
-  }
-
-  private async executeAction(
-    action: OperatorResponse,
-    extractionResult?: unknown,
-  ): Promise<unknown> {
-    const { method, parameters } = action;
-    const page = this.stagehandPage.page;
-
-    switch (method) {
-      case "act":
-        return await page.act(parameters);
-      case "extract":
-        if (!extractionResult) {
-          throw new StagehandError(
-            "Error in OperatorHandler: Cannot complete extraction. No extractionResult provided.",
-          );
-        }
-        return extractionResult;
-      // case "goto":
-      //   await page.goto(parameters, { waitUntil: "load" });
-      //   break;
-      case "wait":
-        await page.waitForTimeout(parseInt(parameters));
-        break;
-      case "navback":
-        await page.goBack();
-        break;
-      case "refresh":
-        await page.reload();
-        break;
-      default:
-        throw new StagehandError(
-          `Error in OperatorHandler: Cannot execute unknown action: ${method}`,
-        );
-    }
-    await this.stagehandPage._waitForSettledDom();
   }
 
   private async _performBrowserAction(step: BrowserStep): Promise<any> {
