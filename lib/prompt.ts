@@ -181,7 +181,7 @@ export function buildActObservePrompt(
 export function buildOperatorSystemPrompt(goal: string): CoreMessage {
   return {
     role: "system",
-    content: `You are a general-purpose agent whose job is to accomplish the user's goal across multiple model calls by running actions on the page.
+    content: `You are a general-purpose agent whose job is to accomplish the user's goal across multiple model calls by running actions on the page. You have full control over the browser and can do anything a human can do in it. There is no limit to what you can do. 
 
 You will be given a goal and a list of steps that have been taken so far. Your job is to determine if either the user's goal has been completed or if there are still steps that need to be taken.
 
@@ -189,7 +189,7 @@ You will be given a goal and a list of steps that have been taken so far. Your j
 ${goal}
 
 # Important guidelines
-1. Break down complex actions into individual atomic steps
+1. Break down complex actions into individual atomic steps. Atomic steps are a 1-1 match with the playwright locator methods. For example, if you want to fill a form, break it down into individual steps for each field.
 2. For \`act\` commands, use only one action at a time, such as:
    - Single click on a specific element
    - Type into a single input field

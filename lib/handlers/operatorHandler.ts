@@ -1,5 +1,6 @@
 import { AgentAction, AgentExecuteOptions, AgentResult } from "@/types/agent";
 import { LogLine } from "@/types/log";
+import { ActResult } from "@/types/stagehand";
 import {
   OperatorResponse,
   operatorResponseSchema,
@@ -88,8 +89,9 @@ export class StagehandOperatorHandler {
           .map((action) => {
             let result: string = "";
             if (action.type === "act") {
-              const args = action.playwrightArguments as ObserveResult;
-              result = `Performed a "${args.method}" action ${args.arguments.length > 0 ? `with arguments: ${args.arguments.map((arg) => `"${arg}"`).join(", ")}` : ""} on "${args.description}"`;
+              // const args = action.playwrightArguments as ObserveResult;
+              const args = action.parameters;
+              result = `Performed action ${args}`;
             } else if (action.type === "extract") {
               result = `Extracted data: ${action.extractionResult}`;
             }
@@ -114,24 +116,29 @@ export class StagehandOperatorHandler {
 
       const result = await this.getNextStep(currentStep);
 
-      if (result.method === "close") {
-        completed = true;
-      }
-
       let extractionResult: unknown | undefined;
       if (result.method === "extract") {
         extractionResult = await this.stagehandPage.extract(result.parameters);
       }
 
-      await this.executeAction(result, extractionResult);
-
-      actions.push({
-        type: result.method,
-        reasoning: result.reasoning,
-        taskCompleted: result.taskComplete,
-        parameters: result.parameters,
-        extractionResult,
-      });
+      const res = await this.executeAction(result, extractionResult);
+      if (res && typeof res === "object" && "success" in res) {
+        actions.push({
+          type: result.method,
+          reasoning: result.reasoning,
+          taskCompleted: res.success,
+          parameters: JSON.stringify(res),
+          extractionResult: JSON.stringify(extractionResult),
+        });
+      } else {
+        actions.push({
+          type: result.method,
+          reasoning: result.reasoning,
+          taskCompleted: result.taskComplete,
+          parameters: JSON.stringify(result.parameters),
+          extractionResult: JSON.stringify(extractionResult),
+        });
+      }
 
       currentStep++;
     }
@@ -188,14 +195,9 @@ export class StagehandOperatorHandler {
     const { method, parameters } = action;
     const page = this.stagehandPage.page;
 
-    if (method === "close") {
-      return;
-    }
-
     switch (method) {
       case "act":
-        await page.act(action.parameters);
-        break;
+        return await page.act(action.parameters);
       case "extract":
         if (!extractionResult) {
           throw new StagehandError(
