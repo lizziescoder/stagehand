@@ -420,9 +420,6 @@ ${scriptContent} \
   }
 
   public get page(): Page {
-    if (!this.initialized) {
-      throw new StagehandNotInitializedError("page");
-    }
     return this.intPage;
   }
 
