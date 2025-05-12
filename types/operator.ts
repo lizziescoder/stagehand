@@ -6,20 +6,11 @@ export const operatorResponseSchema = z.object({
     .describe(
       "The reasoning for the step taken. If this step's method is `close`, the goal was to extract data, and the task was successful, state the data that was extracted.",
     ),
-  method: z.enum([
-    "act",
-    "extract",
-    "goto",
-    "close",
-    "wait",
-    "navback",
-    "refresh",
-  ])
+  method: z.enum(["act", "extract", "goto", "wait", "navback", "refresh"])
     .describe(`The action to perform on the page based off of the goal and the current state of the page.
       goto: Navigate to a specific URL.
       act: Perform an action on the page.  
       extract: Extract data from the page.
-      close: The task is complete, close the browser.
       wait: Wait for a period of time.
       navback: Navigate back to the previous page. Do not navigate back if you are already on the first page.
       refresh: Refresh the page.`),

@@ -1,19 +1,40 @@
 import { AgentAction, AgentExecuteOptions, AgentResult } from "@/types/agent";
 import { LogLine } from "@/types/log";
-import { ActResult } from "@/types/stagehand";
+// import { ActResult } from "@/types/stagehand";
 import {
   OperatorResponse,
   operatorResponseSchema,
   operatorSummarySchema,
 } from "@/types/operator";
 import { LLMClient } from "../llm/LLMClient";
-import { buildOperatorSystemPrompt } from "../prompt";
+import { buildOperatorSystemPrompt, PLANNER_PROMPT } from "../prompt";
 import { StagehandPage } from "../StagehandPage";
-import { ObserveResult } from "@/types/stagehand";
+// import { ObserveResult } from "@/types/stagehand";
 import { StagehandError } from "@/types/stagehandErrors";
 import { CoreMessage, LanguageModelV1 } from "ai";
 import { LLMProvider } from "../llm/LLMProvider";
 import { getAISDKLanguageModel } from "../llm/LLMProvider";
+import { google } from "@ai-sdk/google";
+import { z } from "zod";
+
+
+const PlannerLLM = google("gemini-2.5-pro-exp-03-25");
+
+// Define the subtask interface
+export interface Subtask {
+  id: string;
+  description: string;
+  goal: string;
+  dependencies?: string[]; // IDs of subtasks that must be completed before this one
+  status: "PENDING" | "IN_PROGRESS" | "DONE" | "FAILED";
+}
+
+// Define the plan interface
+export interface TaskPlan {
+  summary: string;
+  subtasks: Subtask[];
+}
+
 
 export class StagehandOperatorHandler {
   private stagehandPage: StagehandPage;
@@ -35,7 +56,6 @@ export class StagehandOperatorHandler {
     this.llmClient = llmClient;
     this.llmProvider = llmProvider;
     this.modelName = modelName;
-    console.log("modelName", this.modelName);
     const firstSlashIndex = this.modelName.indexOf("/");
     const subProvider = this.modelName.substring(0, firstSlashIndex);
     const subModelName = this.modelName.substring(firstSlashIndex + 1);
@@ -48,6 +68,68 @@ export class StagehandOperatorHandler {
     this.model = languageModel;
   }
 
+  public async plan(goal: string): Promise<TaskPlan> {
+      // Generate a plan using the LLM
+      const planResult = await this.llmClient.generateObject({
+        model: PlannerLLM,
+        schema: z.object({
+          summary: z.string().describe("A summary of the overall task plan"),
+          subtasks: z.array(
+            z.object({
+              description: z.string().describe("A clear description of what this subtask should accomplish"),
+              goal: z.string().describe("The specific goal this subtask aims to achieve"),
+              dependencies: z.array(z.number()).optional()
+                .describe("Array of subtask indices (0-based) that must be completed before this subtask can begin")
+            })
+          ).min(1).describe("An array of subtasks to accomplish the overall goal")
+        }),
+        messages: [
+          {
+            role: "system",
+            content: PLANNER_PROMPT
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `I need a plan for accomplishing this task: "${goal}"`
+              }
+            ]
+          }
+        ]
+      });
+      const subtasks = planResult.object.subtasks.map((subtask, index) => ({
+        id: `subtask-${index + 1}`,
+        description: subtask.description,
+        goal: subtask.goal,
+        dependencies: subtask.dependencies?.map(depIndex => `subtask-${depIndex + 1}`),
+        status: "PENDING" as const
+      }));
+      
+      const plan = {
+        summary: planResult.object.summary,
+        subtasks
+      };
+      
+      // Store the plan in narrative memory
+      const title = `Task Plan: ${goal.substring(0, 100)}${goal.length > 100 ? '...' : ''}`;
+      const text = `
+  Task: ${goal}
+  
+  Plan Summary: ${plan.summary}
+  
+  Subtasks:
+  ${plan.subtasks.map((subtask, i) => 
+    `${i+1}. ${subtask.goal}
+       ${subtask.description}
+       Dependencies: ${subtask.dependencies?.length ? subtask.dependencies.join(', ') : 'None'}
+    `).join('\n')}
+      `;
+      return plan;
+  }
+
+
   public async execute(
     instructionOrOptions: string | AgentExecuteOptions,
   ): Promise<AgentResult> {
@@ -56,8 +138,11 @@ export class StagehandOperatorHandler {
         ? { instruction: instructionOrOptions }
         : instructionOrOptions;
 
+    const plan = await this.plan(options.instruction);
+    console.log("plan\n", plan);
+
     this.messages = [buildOperatorSystemPrompt(options.instruction)];
-    let completed = false;
+    const completed = false;
     let currentStep = 0;
     const maxSteps = options.maxSteps || 10;
     const actions: AgentAction[] = [];
