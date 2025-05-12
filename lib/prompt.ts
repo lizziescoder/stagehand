@@ -233,14 +233,14 @@ You will use a "best next step" approach:
    - ACT: Perform an action like clicking, typing, etc.
    - SCREENSHOT: Take a screenshot of the current page
    - WAIT: Wait for a specific condition or time
-   - NAVBACK: Navigate back to a previous page
+   - NAVBACK: Navigate back to the most immediateprevious page, if you're unsure if you would like to go back a few steps, call the GOTO tool
    - GET_URL: Get the current page URL (simpler than EXTRACT)
    - EXTRACT: Extract data from the page using JavaScript
    - DONE: Mark the subtask as successfully completed
    - FAIL: Mark the subtask as failed due to unresolvable issues
 
 Tool Guidelines:
-- ACT: Use for clicking elements, typing text, selecting options, etc. Be specific about the target element.
+- ACT: Use for clicking elements, typing text, selecting options, etc. Be specific about the target element. If clicking failed, try selecting, or the other way around. For the most part you should be clicking and filling. 
 - SCREENSHOT: Use when you need a fresh view of the page or after a significant change.
 - WAIT: Use when you need to wait for an element to appear or for a page to load.
 - NAVBACK: Use when you need to go back to a previous page.
@@ -278,4 +278,5 @@ You will be provided with:
 - Results of any previous extractions
 
 Remember: Visual confirmation through the screenshot is your most reliable guide for making decisions!
+NEVER CALL THE GOTO TOOL. EVER.
 `;

@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { AgentAction, AgentExecuteOptions, AgentResult } from "@/types/agent";
 import { LogLine } from "@/types/log";
 // import { ActResult } from "@/types/stagehand";
@@ -19,7 +20,7 @@ import { z } from "zod";
 import { WORKER_PROMPT } from "../prompt";
 import { UserContent } from "ai";
 
-const PlannerLLM = google("gemini-2.5-pro-exp-03-25");
+const PlannerLLM = google("gemini-2.5-flash-preview-04-17");
 const WorkerLLM = google("gemini-2.0-flash");
 
 export type TaskStatus = "PENDING" | "IN_PROGRESS" | "DONE" | "FAILED";
@@ -51,9 +52,8 @@ export interface TaskProgress {
 export interface BrowserStep {
   text: string;
   reasoning: string;
-  tool:
-    | "GOTO"
-    | "ACT"
+  tool: // | "GOTO"
+  | "ACT"
     | "EXTRACT"
     | "OBSERVE"
     | "CLOSE"
@@ -110,6 +110,12 @@ export class StagehandOperatorHandler {
 
   public async plan(goal: string): Promise<TaskPlan> {
     // Generate a plan using the LLM
+    // TODO add animation ...
+    this.logger({
+      category: "operator",
+      message: `Generating plan`,
+      level: 1,
+    });
     const planResult = await this.llmClient.generateObject({
       model: PlannerLLM,
       schema: z.object({
@@ -146,7 +152,7 @@ export class StagehandOperatorHandler {
           content: [
             {
               type: "text",
-              text: `I need a plan for accomplishing this task: "${goal}"`,
+              text: `I need a plan for accomplishing this task: "${goal}. You're currently on this page: ${this.stagehandPage.page.url()}"`,
             },
           ],
         },
@@ -190,6 +196,7 @@ export class StagehandOperatorHandler {
     let retryCount = 0;
     let lastError: Error | null = null;
     let currentScreenshot: string | null = null;
+    let currentPageText: string | null = null;
     const recentActionHistory: Array<{ tool: string; instruction: string }> =
       [];
     let isSubtaskComplete = false;
@@ -222,6 +229,24 @@ export class StagehandOperatorHandler {
           message: `Initial screenshot captured`,
           level: 2,
         });
+        // ---> Also extract text content after initial screenshot
+        try {
+          const textResult = await this.stagehandPage.page.extract(); // Extract without params
+          currentPageText = textResult.page_text;
+          this.logger({
+            category: "operator",
+            message: `Extracted initial page text content`,
+            level: 2,
+          });
+        } catch (textExtractError) {
+          this.logger({
+            category: "operator",
+            message: `Failed to extract initial page text: ${textExtractError}`,
+            level: 0,
+          });
+          currentPageText = null; // Ensure it's null if extraction fails
+        }
+        // <--- End text extraction
       } catch (e) {
         this.logger({
           category: "operator",
@@ -250,6 +275,7 @@ export class StagehandOperatorHandler {
             currentUrl,
             previousExtraction,
             screenshot: currentScreenshot,
+            currentPageText: currentPageText, // Pass textual content
           });
 
           this.logger({
@@ -323,6 +349,24 @@ export class StagehandOperatorHandler {
               });
             }
             await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait before retry
+            // ---> Also extract text content after loop retry screenshot
+            try {
+              const textResult = await this.stagehandPage.page.extract();
+              currentPageText = textResult.page_text;
+              this.logger({
+                category: "operator",
+                message: `Extracted page text content after loop retry screenshot`,
+                level: 2,
+              });
+            } catch (textExtractError) {
+              this.logger({
+                category: "operator",
+                message: `Failed to extract page text after loop retry screenshot: ${textExtractError}`,
+                level: 0,
+              });
+              currentPageText = null;
+            }
+            // <--- End text extraction
             continue; // Skip executing the repeated action this iteration
           }
 
@@ -343,7 +387,8 @@ export class StagehandOperatorHandler {
               level: 2,
             });
           }
-          if (nextStep.tool === "GOTO" || nextStep.tool === "NAVBACK") {
+          // if (nextStep.tool === "GOTO" || nextStep.tool === "NAVBACK") {
+          if (nextStep.tool === "NAVBACK") {
             currentUrl = this.stagehandPage.page.url() || "unknown"; // Update URL after navigation
             this.logger({
               category: "operator",
@@ -365,6 +410,24 @@ export class StagehandOperatorHandler {
                 message: `Captured screenshot after ${nextStep.tool}`,
                 level: 2,
               });
+              // ---> Also extract text content after action screenshot
+              try {
+                const textResult = await this.stagehandPage.page.extract();
+                currentPageText = textResult.page_text;
+                this.logger({
+                  category: "operator",
+                  message: `Extracted page text content after ${nextStep.tool}`,
+                  level: 2,
+                });
+              } catch (textExtractError) {
+                this.logger({
+                  category: "operator",
+                  message: `Failed to extract page text after ${nextStep.tool}: ${textExtractError}`,
+                  level: 0,
+                });
+                currentPageText = null;
+              }
+              // <--- End text extraction
             } catch (screenshotError) {
               this.logger({
                 category: "operator",
@@ -379,6 +442,24 @@ export class StagehandOperatorHandler {
               message: `Updated screenshot from SCREENSHOT action`,
               level: 2,
             });
+            // ---> Also extract text content after SCREENSHOT action
+            try {
+              const textResult = await this.stagehandPage.page.extract();
+              currentPageText = textResult.page_text;
+              this.logger({
+                category: "operator",
+                message: `Extracted page text content after SCREENSHOT action`,
+                level: 2,
+              });
+            } catch (textExtractError) {
+              this.logger({
+                category: "operator",
+                message: `Failed to extract page text after SCREENSHOT action: ${textExtractError}`,
+                level: 0,
+              });
+              currentPageText = null;
+            }
+            // <--- End text extraction
           }
 
           // TODO: Add logic to determine if subtask is implicitly complete based on state/result?
@@ -434,6 +515,24 @@ export class StagehandOperatorHandler {
             });
           }
           await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait before retry
+          // ---> Also extract text content after error retry screenshot
+          try {
+            const textResult = await this.stagehandPage.page.extract();
+            currentPageText = textResult.page_text;
+            this.logger({
+              category: "operator",
+              message: `Extracted page text content after error retry screenshot`,
+              level: 2,
+            });
+          } catch (textExtractError) {
+            this.logger({
+              category: "operator",
+              message: `Failed to extract page text after error retry screenshot: ${textExtractError}`,
+              level: 0,
+            });
+            currentPageText = null;
+          }
+          // <--- End text extraction
         }
       }
 
@@ -740,9 +839,9 @@ export class StagehandOperatorHandler {
           );
         }
         return extractionResult;
-      case "goto":
-        await page.goto(parameters, { waitUntil: "load" });
-        break;
+      // case "goto":
+      //   await page.goto(parameters, { waitUntil: "load" });
+      //   break;
       case "wait":
         await page.waitForTimeout(parseInt(parameters));
         break;
@@ -769,14 +868,14 @@ export class StagehandOperatorHandler {
     const page = this.stagehandPage.page;
 
     switch (step.tool) {
-      case "GOTO":
-        await page.goto(step.instruction, {
-          waitUntil: "commit", // Match original code
-          timeout: 60000, // Match original code
-        });
-        // Ensure DOM settles after navigation
-        await this.stagehandPage._waitForSettledDom();
-        return null; // No specific result for GOTO
+      // case "GOTO":
+      //   await page.goto(step.instruction, {
+      //     waitUntil: "commit", // Match original code
+      //     timeout: 60000, // Match original code
+      //   });
+      //   // Ensure DOM settles after navigation
+      //   await this.stagehandPage._waitForSettledDom();
+      //   return null; // No specific result for GOTO
 
       case "ACT":
         // Pass instruction string directly, remove unsupported slowDomBasedAct
@@ -940,6 +1039,7 @@ export class StagehandOperatorHandler {
     currentUrl: string;
     previousExtraction: any;
     screenshot: string | null;
+    currentPageText: string | null;
   }): Promise<BrowserStep> {
     const {
       subtaskId,
@@ -951,6 +1051,7 @@ export class StagehandOperatorHandler {
       currentUrl,
       previousExtraction,
       screenshot,
+      currentPageText,
     } = params;
 
     this.logger({
@@ -971,7 +1072,7 @@ export class StagehandOperatorHandler {
         ),
       tool: z
         .enum([
-          "GOTO",
+          // "GOTO",
           "ACT",
           "EXTRACT",
           "OBSERVE",
@@ -1021,6 +1122,14 @@ ${JSON.stringify(previousExtraction, null, 2)}\n`;
     }
     textPrompt += `\nCURRENT URL: ${currentUrl}\n`;
 
+    // Add textual page content if available
+    if (currentPageText) {
+      textPrompt += `\nCURRENT PAGE TEXT CONTENT (extracted). This is a DOM+Accessibility tree hybrid representation of the page:
+-------
+${currentPageText}
+-------\n`; // Limit length to avoid excessive tokens
+    }
+
     // Add loop warning if needed
     if (this._hasPossibleLoop(previousSteps)) {
       textPrompt += `\nWARNING: You appear to be repeating similar actions without making progress. Try a completely different approach to achieve your goal. Consider:
@@ -1031,7 +1140,7 @@ ${JSON.stringify(previousExtraction, null, 2)}\n`;
     }
 
     textPrompt += `
-Determine the next single step to achieve the subtask goal. Carefully analyze the provided screenshot.
+Determine the next single step to achieve the subtask goal. Carefully analyze the provided screenshot AND the textual page content.
 Respond ONLY with the JSON object matching the required schema.`;
 
     try {
