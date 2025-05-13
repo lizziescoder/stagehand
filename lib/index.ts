@@ -754,6 +754,16 @@ export class Stagehand {
       });
     this.contextPath = contextPath;
     this._browser = browser;
+    if (!context) {
+      const errorMessage =
+        "The browser context is undefined. This means the CDP connection to the browser failed";
+      this.stagehandLogger.error(
+        this.env === "LOCAL"
+          ? `${errorMessage}. If running locally, please check if the browser is running and the port is open.`
+          : errorMessage,
+      );
+      process.exit(1);
+    }
     this.stagehandContext = await StagehandContext.init(context, this);
 
     const defaultPage = (await this.stagehandContext.getStagehandPages())[0];
