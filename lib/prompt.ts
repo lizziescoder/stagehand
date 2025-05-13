@@ -1,5 +1,4 @@
 import { ChatMessage } from "./llm/LLMClient";
-import { CoreMessage } from "ai";
 export function buildUserInstructionsString(
   userProvidedInstructions?: string,
 ): string {
