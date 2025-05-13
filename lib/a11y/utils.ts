@@ -1,7 +1,12 @@
-import { AccessibilityNode, TreeResult, AXNode } from "../../types/context";
+import {
+  AccessibilityNode,
+  TreeResult,
+  AXNode,
+  DomNode,
+} from "../../types/context";
 import { StagehandPage } from "../StagehandPage";
 import { LogLine } from "../../types/log";
-import { CDPSession, Page, Locator } from "playwright";
+import { Page, Locator } from "playwright";
 import {
   PlaywrightCommandMethodNotSupportedException,
   PlaywrightCommandException,
@@ -186,6 +191,22 @@ export async function buildHierarchicalTree(
   page?: StagehandPage,
   logger?: (logLine: LogLine) => void,
 ): Promise<TreeResult> {
+  await page.enableCDP("DOM");
+
+  const { root } = await page.sendCDP<{ root: DomNode }>("DOM.getDocument", {
+    depth: -1,
+    pierce: true,
+  });
+
+  await page.disableCDP("DOM");
+
+  const byBackendId = new Map<number, DomNode>();
+  const byNodeId = new Map<number, DomNode>();
+  for (const dn of flatten(root)) {
+    byBackendId.set(dn.backendNodeId, dn);
+    byNodeId.set(dn.nodeId, dn);
+  }
+
   // Map to store nodeId -> URL for only those nodes that do have a URL.
   const idToUrl: Record<string, string> = {};
 
@@ -218,11 +239,14 @@ export async function buildHierarchicalTree(
     if (!hasValidName && !hasChildren && !isInteractive) {
       return;
     }
-
+    const domNode = node.backendDOMNodeId
+      ? byBackendId.get(node.backendDOMNodeId)
+      : undefined;
     // Create a clean node object with only relevant properties
     nodeMap.set(node.nodeId, {
       role: node.role,
       nodeId: node.nodeId,
+      xpath: domNode ? xpathFor(domNode, byNodeId) : "",
       ...(hasValidName && { name: node.name }), // Only include name if it exists and isn't empty
       ...(node.description && { description: node.description }),
       ...(node.value && { value: node.value }),
@@ -237,10 +261,14 @@ export async function buildHierarchicalTree(
   nodes.forEach((node) => {
     // Add iframes to a list and include in the return object
     const isIframe = node.role === "Iframe";
+    const domNode = node.backendDOMNodeId
+      ? byBackendId.get(node.backendDOMNodeId)
+      : undefined;
     if (isIframe) {
       const iframeNode = {
         role: node.role,
         nodeId: node.nodeId,
+        xpath: domNode ? xpathFor(domNode, byNodeId) : "",
       };
       iframe_list.push(iframeNode);
     }
@@ -275,11 +303,21 @@ export async function buildHierarchicalTree(
     .map((node) => formatSimplifiedTree(node))
     .join("\n");
 
+  const idToXpath: Record<string, string> = {};
+  function collect(n: AccessibilityNode): void {
+    if (n.backendDOMNodeId !== undefined) {
+      idToXpath[n.backendDOMNodeId] = n.xpath;
+    }
+    n.children?.forEach(collect);
+  }
+  finalTree.forEach(collect);
+
   return {
     tree: finalTree,
     simplified: simplifiedFormat,
     iframes: iframe_list,
     idToUrl: idToUrl,
+    idToXpath: idToXpath,
   };
 }
 
@@ -361,6 +399,7 @@ export async function getAccessibilityTree(
 
         return {
           role: roleValue,
+          xpath: "",
           name: node.name?.value,
           description: node.description?.value,
           value: node.value?.value,
@@ -403,72 +442,53 @@ export async function getAccessibilityTree(
   }
 }
 
-// This function is wrapped into a string and sent as a CDP command
-// It is not meant to be actually executed here
-const functionString = `
-function getNodePath(el) {
-  if (!el || (el.nodeType !== Node.ELEMENT_NODE && el.nodeType !== Node.TEXT_NODE)) {
-    console.log("el is not a valid node type");
-    return "";
-  }
+function flatten(node: DomNode, out: DomNode[] = []): DomNode[] {
+  out.push(node);
+  node.children?.forEach((c) => flatten(c, out));
+  return out;
+}
 
-  const parts = [];
-  let current = el;
+function xpathFor(node: DomNode, byNodeId: Map<number, DomNode>): string {
+  const segs: string[] = [];
+  let n: DomNode | undefined = node;
 
-  while (current && (current.nodeType === Node.ELEMENT_NODE || current.nodeType === Node.TEXT_NODE)) {
-    let index = 0;
-    let hasSameTypeSiblings = false;
-    const siblings = current.parentElement
-      ? Array.from(current.parentElement.childNodes)
-      : [];
+  while (n && n.nodeName !== "#document") {
+    const parent = n.parentId ? byNodeId.get(n.parentId) : undefined;
 
-    for (let i = 0; i < siblings.length; i++) {
-      const sibling = siblings[i];
-      if (
-        sibling.nodeType === current.nodeType &&
-        sibling.nodeName === current.nodeName
-      ) {
-        index = index + 1;
-        hasSameTypeSiblings = true;
-        if (sibling.isSameNode(current)) {
-          break;
-        }
+    let idx = 1;
+    if (parent?.children) {
+      for (const sib of parent.children) {
+        if (sib === n) break;
+
+        const sameKind = n.nodeName.startsWith("#")
+          ? sib.nodeName === n.nodeName
+          : sib.nodeName === n.nodeName;
+
+        if (sameKind) idx++;
       }
     }
 
-    if (!current || !current.parentNode) break;
-    if (current.nodeName.toLowerCase() === "html"){
-      parts.unshift("html");
-      break;
+    // Segment for this node
+    let seg: string;
+    switch (n.nodeName) {
+      case "#text":
+        seg = `text()[${idx}]`;
+        break;
+      case "#comment":
+        seg = `comment()[${idx}]`;
+        break;
+      case "#cdata-section":
+        seg = `text()[${idx}]`;
+        break;
+      default:
+        seg = `${n.nodeName.toLowerCase()}[${idx}]`;
     }
 
-    // text nodes are handled differently in XPath
-    if (current.nodeName !== "#text") {
-      const tagName = current.nodeName.toLowerCase();
-      const pathIndex = hasSameTypeSiblings ? \`[\${index}]\` : "";
-      parts.unshift(\`\${tagName}\${pathIndex}\`);
-    }
-    
-    current = current.parentElement;
+    segs.unshift(seg);
+    n = parent;
   }
 
-  return parts.length ? \`/\${parts.join("/")}\` : "";
-}`;
-
-export async function getXPathByResolvedObjectId(
-  cdpClient: CDPSession,
-  resolvedObjectId: string,
-): Promise<string> {
-  const { result } = await cdpClient.send("Runtime.callFunctionOn", {
-    objectId: resolvedObjectId,
-    functionDeclaration: `function() {
-      ${functionString}
-      return getNodePath(this);
-    }`,
-    returnByValue: true,
-  });
-
-  return result.value || "";
+  return "/" + segs.join("/");
 }
 
 /**

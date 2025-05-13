@@ -21,6 +21,7 @@ export interface AXNode {
 
 export type AccessibilityNode = {
   role: string;
+  xpath: string;
   name?: string;
   description?: string;
   value?: string;
@@ -43,6 +44,15 @@ export interface TreeResult {
   simplified: string;
   iframes?: AccessibilityNode[];
   idToUrl: Record<string, string>;
+  idToXpath: Record<string, string>;
+}
+
+export interface DomNode {
+  nodeId: number;
+  backendNodeId: number;
+  nodeName: string;
+  parentId?: number;
+  children?: DomNode[];
 }
 
 export interface EnhancedContext
