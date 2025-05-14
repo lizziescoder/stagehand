@@ -193,132 +193,134 @@ export async function buildHierarchicalTree(
 ): Promise<TreeResult> {
   await page.enableCDP("DOM");
 
-  const { root } = await page.sendCDP<{ root: DomNode }>("DOM.getDocument", {
-    depth: -1,
-    pierce: true,
-  });
-
-  await page.disableCDP("DOM");
-
-  const byBackendId = new Map<number, DomNode>();
-  const byNodeId = new Map<number, DomNode>();
-  for (const dn of flatten(root)) {
-    byBackendId.set(dn.backendNodeId, dn);
-    byNodeId.set(dn.nodeId, dn);
-  }
-
-  // Map to store nodeId -> URL for only those nodes that do have a URL.
-  const idToUrl: Record<string, string> = {};
-
-  // Map to store processed nodes for quick lookup
-  const nodeMap = new Map<string, AccessibilityNode>();
-  const iframe_list: AccessibilityNode[] = [];
-
-  // First pass: Create nodes that are meaningful
-  // We only keep nodes that either have a name or children to avoid cluttering the tree
-  nodes.forEach((node) => {
-    // Skip node if its ID is negative (e.g., "-1000002014")
-    const nodeIdValue = parseInt(node.nodeId, 10);
-    if (nodeIdValue < 0) {
-      return;
-    }
-
-    const url = extractUrlFromAXNode(node);
-    if (url) {
-      idToUrl[node.nodeId] = url;
-    }
-
-    const hasChildren = node.childIds && node.childIds.length > 0;
-    const hasValidName = node.name && node.name.trim() !== "";
-    const isInteractive =
-      node.role !== "none" &&
-      node.role !== "generic" &&
-      node.role !== "InlineTextBox"; //add other interactive roles here
-
-    // Include nodes that are either named, have children, or are interactive
-    if (!hasValidName && !hasChildren && !isInteractive) {
-      return;
-    }
-    const domNode = node.backendDOMNodeId
-      ? byBackendId.get(node.backendDOMNodeId)
-      : undefined;
-    // Create a clean node object with only relevant properties
-    nodeMap.set(node.nodeId, {
-      role: node.role,
-      nodeId: node.nodeId,
-      xpath: domNode ? xpathFor(domNode, byNodeId) : "",
-      ...(hasValidName && { name: node.name }), // Only include name if it exists and isn't empty
-      ...(node.description && { description: node.description }),
-      ...(node.value && { value: node.value }),
-      ...(node.backendDOMNodeId !== undefined && {
-        backendDOMNodeId: node.backendDOMNodeId,
-      }),
+  try {
+    const { root } = await page.sendCDP<{ root: DomNode }>("DOM.getDocument", {
+      depth: -1,
+      pierce: true,
     });
-  });
 
-  // Second pass: Establish parent-child relationships
-  // This creates the actual tree structure by connecting nodes based on parentId
-  nodes.forEach((node) => {
-    // Add iframes to a list and include in the return object
-    const isIframe = node.role === "Iframe";
-    const domNode = node.backendDOMNodeId
-      ? byBackendId.get(node.backendDOMNodeId)
-      : undefined;
-    if (isIframe) {
-      const iframeNode = {
+    const byBackendId = new Map<number, DomNode>();
+    const byNodeId = new Map<number, DomNode>();
+    for (const dn of flatten(root)) {
+      byBackendId.set(dn.backendNodeId, dn);
+      byNodeId.set(dn.nodeId, dn);
+    }
+
+    // Map to store nodeId -> URL for only those nodes that do have a URL.
+    const idToUrl: Record<string, string> = {};
+
+    // Map to store processed nodes for quick lookup
+    const nodeMap = new Map<string, AccessibilityNode>();
+    const iframe_list: AccessibilityNode[] = [];
+
+    // First pass: Create nodes that are meaningful
+    // We only keep nodes that either have a name or children to avoid cluttering the tree
+    nodes.forEach((node) => {
+      // Skip node if its ID is negative (e.g., "-1000002014")
+      const nodeIdValue = parseInt(node.nodeId, 10);
+      if (nodeIdValue < 0) {
+        return;
+      }
+
+      const url = extractUrlFromAXNode(node);
+      if (url) {
+        idToUrl[node.nodeId] = url;
+      }
+
+      const hasChildren = node.childIds && node.childIds.length > 0;
+      const hasValidName = node.name && node.name.trim() !== "";
+      const isInteractive =
+        node.role !== "none" &&
+        node.role !== "generic" &&
+        node.role !== "InlineTextBox"; //add other interactive roles here
+
+      // Include nodes that are either named, have children, or are interactive
+      if (!hasValidName && !hasChildren && !isInteractive) {
+        return;
+      }
+      const domNode = node.backendDOMNodeId
+        ? byBackendId.get(node.backendDOMNodeId)
+        : undefined;
+      // Create a clean node object with only relevant properties
+      nodeMap.set(node.nodeId, {
         role: node.role,
         nodeId: node.nodeId,
         xpath: domNode ? xpathFor(domNode, byNodeId) : "",
-      };
-      iframe_list.push(iframeNode);
-    }
-    if (node.parentId && nodeMap.has(node.nodeId)) {
-      const parentNode = nodeMap.get(node.parentId);
-      const currentNode = nodeMap.get(node.nodeId);
+        ...(hasValidName && { name: node.name }), // Only include name if it exists and isn't empty
+        ...(node.description && { description: node.description }),
+        ...(node.value && { value: node.value }),
+        ...(node.backendDOMNodeId !== undefined && {
+          backendDOMNodeId: node.backendDOMNodeId,
+        }),
+      });
+    });
 
-      if (parentNode && currentNode) {
-        if (!parentNode.children) {
-          parentNode.children = [];
-        }
-        parentNode.children.push(currentNode);
+    // Second pass: Establish parent-child relationships
+    // This creates the actual tree structure by connecting nodes based on parentId
+    nodes.forEach((node) => {
+      // Add iframes to a list and include in the return object
+      const isIframe = node.role === "Iframe";
+      const domNode = node.backendDOMNodeId
+        ? byBackendId.get(node.backendDOMNodeId)
+        : undefined;
+      if (isIframe) {
+        const iframeNode = {
+          role: node.role,
+          nodeId: node.nodeId,
+          xpath: domNode ? xpathFor(domNode, byNodeId) : "",
+        };
+        iframe_list.push(iframeNode);
       }
+      if (node.parentId && nodeMap.has(node.nodeId)) {
+        const parentNode = nodeMap.get(node.parentId);
+        const currentNode = nodeMap.get(node.nodeId);
+
+        if (parentNode && currentNode) {
+          if (!parentNode.children) {
+            parentNode.children = [];
+          }
+          parentNode.children.push(currentNode);
+        }
+      }
+    });
+
+    // Final pass: Build the root-level tree and clean up structural nodes
+    const rootNodes = nodes
+      .filter((node) => !node.parentId && nodeMap.has(node.nodeId)) // Get root nodes
+      .map((node) => nodeMap.get(node.nodeId))
+      .filter(Boolean) as AccessibilityNode[];
+
+    const cleanedTreePromises = rootNodes.map((node) =>
+      cleanStructuralNodes(node, page, logger),
+    );
+    const finalTree = (await Promise.all(cleanedTreePromises)).filter(
+      Boolean,
+    ) as AccessibilityNode[];
+
+    // Generate a simplified string representation of the tree
+    const simplifiedFormat = finalTree
+      .map((node) => formatSimplifiedTree(node))
+      .join("\n");
+
+    const idToXpath: Record<string, string> = {};
+    function collect(n: AccessibilityNode): void {
+      if (n.backendDOMNodeId !== undefined) {
+        idToXpath[n.backendDOMNodeId] = n.xpath;
+      }
+      n.children?.forEach(collect);
     }
-  });
+    finalTree.forEach(collect);
 
-  // Final pass: Build the root-level tree and clean up structural nodes
-  const rootNodes = nodes
-    .filter((node) => !node.parentId && nodeMap.has(node.nodeId)) // Get root nodes
-    .map((node) => nodeMap.get(node.nodeId))
-    .filter(Boolean) as AccessibilityNode[];
-
-  const cleanedTreePromises = rootNodes.map((node) =>
-    cleanStructuralNodes(node, page, logger),
-  );
-  const finalTree = (await Promise.all(cleanedTreePromises)).filter(
-    Boolean,
-  ) as AccessibilityNode[];
-
-  // Generate a simplified string representation of the tree
-  const simplifiedFormat = finalTree
-    .map((node) => formatSimplifiedTree(node))
-    .join("\n");
-
-  const idToXpath: Record<string, string> = {};
-  function collect(n: AccessibilityNode): void {
-    if (n.backendDOMNodeId !== undefined) {
-      idToXpath[n.backendDOMNodeId] = n.xpath;
-    }
-    n.children?.forEach(collect);
+    return {
+      tree: finalTree,
+      simplified: simplifiedFormat,
+      iframes: iframe_list,
+      idToUrl: idToUrl,
+      idToXpath: idToXpath,
+    };
+  } finally {
+    await page.disableCDP("DOM");
   }
-  finalTree.forEach(collect);
-
-  return {
-    tree: finalTree,
-    simplified: simplifiedFormat,
-    iframes: iframe_list,
-    idToUrl: idToUrl,
-    idToXpath: idToXpath,
-  };
 }
 
 /**
