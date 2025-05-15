@@ -57,9 +57,7 @@ export function formatSimplifiedTree(
  * 1. a `tagNameMap`, which is a mapping of `backendNodeId`s -> `nodeName`s
  * 2. an `xpathMap`, which is a mapping of `backendNodeId`s -> `xPaths`s
  */
-export async function buildBackendIdMaps(
-  page: StagehandPage,
-): Promise<BackendIdMaps> {
+async function buildBackendIdMaps(page: StagehandPage): Promise<BackendIdMaps> {
   await page.enableCDP("DOM");
 
   try {
@@ -98,7 +96,6 @@ export async function buildBackendIdMaps(
       }
     };
 
-    // Root of document is /html[1] (skip #document)
     walk(root, "");
 
     return { tagNameMap, xpathMap };
