@@ -43,6 +43,7 @@ import {
   UnsupportedModelError,
   UnsupportedAISDKModelProviderError,
   InvalidAISDKModelFormatError,
+  StagehandInitError,
 } from "../types/stagehandErrors";
 import { z } from "zod";
 import { GotoOptions } from "@/types/playwright";
@@ -762,7 +763,7 @@ export class Stagehand {
           ? `${errorMessage}. If running locally, please check if the browser is running and the port is open.`
           : errorMessage,
       );
-      process.exit(1);
+      throw new StagehandInitError(errorMessage);
     }
     this.stagehandContext = await StagehandContext.init(context, this);
 
