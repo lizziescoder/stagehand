@@ -6,7 +6,7 @@ import { Schema, Type } from "@google/genai";
 import { ModelProvider } from "../types/model";
 import {
   ZodSchemaValidationError,
-  MissingLLMConfigurationError,
+  // MissingLLMConfigurationError,
 } from "@/types/stagehandErrors";
 
 export function validateZodSchema(schema: z.ZodTypeAny, data: unknown) {
