@@ -198,6 +198,6 @@ ${JSON.stringify(issues, null, 2)}`);
 
 export class StagehandInitError extends StagehandError {
   constructor(message: string) {
-    super(`${message}`);
+    super(message);
   }
 }
