@@ -2,6 +2,7 @@ import {
   UnsupportedAISDKModelProviderError,
   UnsupportedModelError,
   UnsupportedModelProviderError,
+  MissingLLMConfigurationError,
 } from "@/types/stagehandErrors";
 import { LogLine } from "../../types/log";
 import {
@@ -111,14 +112,7 @@ function getAISDKLanguageModel(
     // Get the specific model from the provider
     return provider(subModelName);
   } else {
-    const provider = AISDKProviders[subProvider];
-    if (!provider) {
-      throw new UnsupportedAISDKModelProviderError(
-        subProvider,
-        Object.keys(AISDKProviders),
-      );
-    }
-    return provider(subModelName);
+    return undefined;
   }
 }
 
@@ -166,6 +160,10 @@ export class LLMProvider {
         subModelName,
         clientOptions?.apiKey,
       );
+
+      if (!languageModel) {
+        throw new MissingLLMConfigurationError();
+      }
 
       return new AISdkClient({
         model: languageModel,
