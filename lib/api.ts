@@ -55,7 +55,9 @@ export class StagehandAPI {
     browserbaseSessionID,
   }: StartSessionParams): Promise<StartSessionResult> {
     if (!modelApiKey) {
-      throw new StagehandAPIError("modelApiKey is required");
+      if (modelName !== "google/gemini-2.0-flash") {
+        throw new StagehandAPIError("modelApiKey is required");
+      }
     }
     this.modelApiKey = modelApiKey;
     const sessionResponse = await this.request("/sessions/start", {
@@ -227,7 +229,7 @@ export class StagehandAPI {
       "x-bb-session-id": this.sessionId,
       // we want real-time logs, so we stream the response
       "x-stream-response": "true",
-      "x-model-api-key": this.modelApiKey,
+      ...(this.modelApiKey ? { "x-model-api-key": this.modelApiKey } : {}),
       "x-sent-at": new Date().toISOString(),
       "x-language": "typescript",
     };

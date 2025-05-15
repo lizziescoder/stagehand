@@ -512,6 +512,7 @@ export class Stagehand {
       env: "BROWSERBASE",
     },
   ) {
+    this.usingAPI = useAPI ?? false;
     this.externalLogger =
       logger || ((logLine: LogLine) => defaultLogger(logLine, disablePino));
 
@@ -562,10 +563,10 @@ export class Stagehand {
     if (!modelClientOptions?.apiKey) {
       // If no API key is provided, try to load it from the environment
       if (LLMProvider.getModelProvider(this.modelName) === "aisdk") {
-        modelApiKey = loadApiKeyFromEnv(
-          this.modelName.split("/")[0],
-          this.logger,
-        );
+        const provider = this.modelName.split("/")[0];
+        if (this.modelName !== "google/gemini-2.0-flash" || !this.usingAPI) {
+          modelApiKey = loadApiKeyFromEnv(provider, this.logger);
+        }
       } else {
         // Temporary add for legacy providers
         modelApiKey =
@@ -613,7 +614,6 @@ export class Stagehand {
     this.browserbaseSessionCreateParams = browserbaseSessionCreateParams;
     this.browserbaseSessionID = browserbaseSessionID;
     this.userProvidedInstructions = systemPrompt;
-    this.usingAPI = useAPI ?? false;
     if (this.usingAPI && env === "LOCAL") {
       throw new StagehandEnvironmentError("LOCAL", "BROWSERBASE", "API mode");
     } else if (this.usingAPI && !process.env.STAGEHAND_API_URL) {
