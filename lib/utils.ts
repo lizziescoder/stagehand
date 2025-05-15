@@ -4,7 +4,10 @@ import { LogLine } from "../types/log";
 import { ZodPathSegments } from "../types/stagehand";
 import { Schema, Type } from "@google/genai";
 import { ModelProvider } from "../types/model";
-import { ZodSchemaValidationError } from "@/types/stagehandErrors";
+import {
+  ZodSchemaValidationError,
+  MissingLLMConfigurationError,
+} from "@/types/stagehandErrors";
 
 export function validateZodSchema(schema: z.ZodTypeAny, data: unknown) {
   const result = schema.safeParse(data);
@@ -482,6 +485,7 @@ export function loadApiKeyFromEnv(
     message: `API key for ${provider} not found in environment variable ${envVarName}`,
     level: 0,
   });
+  throw new MissingLLMConfigurationError();
 
   return undefined;
 }
