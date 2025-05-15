@@ -485,7 +485,6 @@ export function loadApiKeyFromEnv(
     message: `API key for ${provider} not found in environment variable ${envVarName}`,
     level: 0,
   });
-  throw new MissingLLMConfigurationError();
-
+  // throw new MissingLLMConfigurationError();
   return undefined;
 }
