@@ -1,4 +1,4 @@
-import type { ConstructorParams } from "@/dist";
+import type { ConstructorParams } from "./dist";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -7,9 +7,9 @@ const StagehandConfig: ConstructorParams = {
   domSettleTimeoutMs: 30_000 /* Timeout for DOM to settle in milliseconds */,
 
   //   LLM configuration
-  modelName: "gpt-4o" /* Name of the model to use */,
+  modelName: "google/gemini-2.0-flash" /* Name of the model to use */,
   modelClientOptions: {
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey: process.env.GOOGLE_API_KEY,
   } /* Configuration options for the model client */,
 
   // Browser configuration

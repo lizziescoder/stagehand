@@ -64,4 +64,10 @@ test.describe("Browserbase Sessions", () => {
       "https://docs.stagehand.dev/get_started/introduction",
     );
   });
+  test("creates the right session metadata", async () => {
+    const session = await browserbase.sessions.retrieve(sessionId);
+    expect(session.userMetadata.stagehand).toBe("true");
+    expect(session.userMetadata.modelName).toBe("google/gemini-2.0-flash");
+    expect(session.userMetadata.usingCustomClient).toBe(false);
+  });
 });
