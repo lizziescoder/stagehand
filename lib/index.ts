@@ -562,7 +562,7 @@ export class Stagehand {
     // Update logger verbosity level
     this.stagehandLogger.setVerbosity(this.verbose);
     this.modelName = modelName ?? DEFAULT_MODEL_NAME;
-    this._usingCustomClient = modelName ? false : true;
+    this._usingCustomClient = !modelName;
 
     let modelApiKey: string | undefined;
 
