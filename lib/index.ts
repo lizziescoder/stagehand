@@ -167,8 +167,8 @@ async function getBrowser(
         userMetadata: {
           ...(browserbaseSessionCreateParams?.userMetadata || {}),
           stagehand: "true",
-          modelName: modelName ?? "unknown",
-          usingCustomClient: usingCustomClient,
+          modelName: modelName.replace("/", "_") ?? "unknown",
+          usingCustomClient: usingCustomClient.toString(),
         },
       });
 
@@ -744,7 +744,7 @@ export class Stagehand {
         this.env,
         this.headless,
         this.logger,
-        this.modelName,
+        this._usingCustomClient ? "NO_MODEL_DEFINED" : this.modelName,
         this._usingCustomClient,
         this.browserbaseSessionCreateParams,
         this.browserbaseSessionID,
