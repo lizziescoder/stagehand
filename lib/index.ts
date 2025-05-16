@@ -167,7 +167,7 @@ async function getBrowser(
         userMetadata: {
           ...(browserbaseSessionCreateParams?.userMetadata || {}),
           stagehand: "true",
-          modelName: modelName.replace("/", "_") ?? "unknown",
+          modelName: modelName?.replace("/", "_") || "unknown",
           usingCustomClient: usingCustomClient.toString(),
         },
       });
