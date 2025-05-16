@@ -416,7 +416,7 @@ async function handlePossiblePageNavigation(
   logger({
     category: "action",
     message: `${actionDescription}, checking for page navigation`,
-    level: 0,
+    level: 1,
     auxiliary: {
       xpath: { value: xpath, type: "string" },
     },
