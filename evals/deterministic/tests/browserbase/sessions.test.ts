@@ -67,7 +67,7 @@ test.describe("Browserbase Sessions", () => {
   test("creates the right session metadata", async () => {
     const session = await browserbase.sessions.retrieve(sessionId);
     expect(session.userMetadata.stagehand).toBe("true");
-    expect(session.userMetadata.modelName).toBe("google_gemini-2.0-flash");
+    expect(session.userMetadata.modelName).toBe("gpt-4o");
     expect(session.userMetadata.usingCustomClient).toBe("false");
   });
 });
