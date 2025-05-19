@@ -362,28 +362,8 @@ ${scriptContent} \
                     level: 1,
                   });
                 }
-                this.stagehand.log({
-                  category: "temp debug",
-                  message: "starting waitforloadstate(domcontentloaded)",
-                  level: 2,
-                });
                 await target.waitForLoadState("domcontentloaded");
-                this.stagehand.log({
-                  category: "temp debug",
-                  message: "finished waitforloadstate(domcontentloaded)",
-                  level: 2,
-                });
-                this.stagehand.log({
-                  category: "temp debug",
-                  message: "starting _waitForSettledDom",
-                  level: 2,
-                });
                 await this._waitForSettledDom();
-                this.stagehand.log({
-                  category: "temp debug",
-                  message: "finished _waitForSettledDom",
-                  level: 2,
-                });
               }
               return result;
             };
