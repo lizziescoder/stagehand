@@ -563,7 +563,7 @@ ${scriptContent} \
             category: "dom",
             message:
               "⚠️ DOM-settle timeout reached – network requests still pending",
-            level: 1,
+            level: 2,
             auxiliary: {
               count: {
                 value: inflight.size.toString(),
