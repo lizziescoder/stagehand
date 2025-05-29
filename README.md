@@ -10,7 +10,7 @@
 </div>
 
 <p align="center">
-  The production-ready framework for AI browser automations.<br>
+  <strong>The production-ready framework for AI browser automations.</strong><br>
   <a href="https://docs.stagehand.dev">Read the Docs</a>
 </p>
 
