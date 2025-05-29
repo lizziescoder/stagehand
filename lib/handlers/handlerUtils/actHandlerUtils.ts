@@ -389,9 +389,9 @@ export async function fallbackLocatorMethod(ctx: MethodHandlerContext) {
         `Method ${method} is not supported by locator`,
       );
     }
-    await (locatorMethod as unknown as (...a: unknown[]) => Promise<void>)(
-      ...(args as Parameters<typeof locatorMethod>),
-    );
+    await (
+      locatorMethod as unknown as (...a: unknown[]) => Promise<void>
+    ).apply(locator, args as Parameters<typeof locatorMethod>);
   } catch (e) {
     logger({
       category: "action",
