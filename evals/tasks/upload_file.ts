@@ -1,12 +1,10 @@
 import { EvalFunction } from "@/types/evals";
-import { z } from "zod";
 
 export const upload_file: EvalFunction = async ({
   logger,
   debugUrl,
   sessionUrl,
   stagehand,
-  useTextExtract,
 }) => {
   try {
     await stagehand.page.goto(
@@ -14,20 +12,10 @@ export const upload_file: EvalFunction = async ({
     );
 
     const observations = await stagehand.page.observe(
-      "Upload a file to the file input with id 'fileUpload'",
+      "Find the element for uploading files",
     );
-    if (observations.length !== 1) {
-      await stagehand.close();
-      return {
-        _success: false,
-        observations,
-        debugUrl,
-        sessionUrl,
-        logs: logger.getLogs(),
-      };
-    }
 
-    const uploadObservation = observations[0]!;
+    const uploadObservation = observations[0];
     uploadObservation.arguments = [
       {
         name: "emoji.png",
@@ -37,21 +25,18 @@ export const upload_file: EvalFunction = async ({
         ),
       },
     ];
+    uploadObservation.method = "setInputFiles";
 
     await stagehand.page.act(uploadObservation);
 
-    const fileSize = await stagehand.page.extract({
-      instruction:
-        "Get the size of the file. It should be the number inside the span with id fileSize.",
-      schema: z.object({
-        fileSize: z.number().describe("The size of the file in bytes"),
-      }),
-      useTextExtract,
-    });
+    const actualValue = await stagehand.page
+      .locator("xpath=/html/body/span[2]")
+      .textContent();
+    const expectedValue = "5522";
 
     await stagehand.close();
 
-    if (!fileSize || !fileSize.fileSize) {
+    if (actualValue != expectedValue) {
       return {
         _success: false,
         logs: logger.getLogs(),
@@ -62,7 +47,6 @@ export const upload_file: EvalFunction = async ({
 
     return {
       _success: true,
-      fileSize,
       logs: logger.getLogs(),
       debugUrl,
       sessionUrl,
@@ -91,5 +75,7 @@ export const upload_file: EvalFunction = async ({
       debugUrl,
       sessionUrl,
     };
+  } finally {
+    await stagehand.close();
   }
 };
