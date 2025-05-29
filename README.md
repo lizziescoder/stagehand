@@ -3,7 +3,7 @@
     <a href="https://stagehand.dev">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="https://stagehand.dev/logo-dark.svg" />
-        <img alt="Stagehand" src="https://stagehand.dev/logo-light.svg" />
+        <img alt="Stagehand" src="https://www.stagehand.dev/_next/image?url=%2Flogos%2Fmain-logo.webp&w=384&q=75" />
       </picture>
     </a>
   </ul>
