@@ -346,6 +346,10 @@
     {
       "name": "login",
       "categories": ["act", "regression"]
+    },
+    {
+      "name": "iframe_hn",
+      "categories": ["extract"]
     }
   ]
 }
