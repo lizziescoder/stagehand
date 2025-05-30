@@ -29,7 +29,6 @@ export const EvalCategorySchema = z.enum([
   "combination",
   "extract",
   "experimental",
-  "text_extract",
   "targeted_extract",
   "regression",
   "regression_llm_providers",

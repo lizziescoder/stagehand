@@ -30,8 +30,6 @@ for (const arg of rawArgs) {
     if (!isNaN(val)) {
       parsedArgs.concurrency = val;
     }
-  } else if (arg.startsWith("--extract-method=")) {
-    parsedArgs.extractMethod = arg.split("=")[1];
   } else if (arg.startsWith("provider=")) {
     parsedArgs.provider = arg.split("=")[1]?.toLowerCase();
   } else {
@@ -61,7 +59,6 @@ const DEFAULT_EVAL_CATEGORIES = process.env.EVAL_CATEGORIES
       "combination",
       "extract",
       "experimental",
-      "text_extract",
       "targeted_extract",
       "regression_llm_providers",
       "regression",
