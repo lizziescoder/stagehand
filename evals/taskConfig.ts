@@ -75,7 +75,7 @@ type TaskConfig = {
 const tasksConfig = config.tasks as TaskConfig[];
 
 const tasksByName = tasksConfig.reduce<
-  Record<string, { categories: string[]; extractMethod?: string }>
+  Record<string, { categories: string[] }>
 >((acc, task) => {
   acc[task.name] = {
     categories: task.categories,

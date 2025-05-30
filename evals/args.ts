@@ -8,7 +8,6 @@ const parsedArgs: {
   env?: string;
   trials?: number;
   concurrency?: number;
-  extractMethod?: string;
   provider?: string;
   leftover: string[];
 } = {
