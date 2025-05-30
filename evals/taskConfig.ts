@@ -71,7 +71,6 @@ const config = JSON.parse(fs.readFileSync(configPath, "utf-8")) satisfies {
 type TaskConfig = {
   name: string;
   categories: string[];
-  extract_method?: string;
 };
 const tasksConfig = config.tasks as TaskConfig[];
 
@@ -80,7 +79,6 @@ const tasksByName = tasksConfig.reduce<
 >((acc, task) => {
   acc[task.name] = {
     categories: task.categories,
-    extractMethod: task.extract_method,
   };
   return acc;
 }, {});

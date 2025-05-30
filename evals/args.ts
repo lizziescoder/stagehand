@@ -53,12 +53,6 @@ if (parsedArgs.concurrency !== undefined) {
   process.env.EVAL_MAX_CONCURRENCY = String(parsedArgs.concurrency);
 }
 
-const extractMethod = parsedArgs.extractMethod || "domExtract";
-process.env.EXTRACT_METHOD = extractMethod;
-
-const useTextExtract = extractMethod === "textExtract";
-const useAccessibilityTree = extractMethod === "accessibilityTree";
-
 const DEFAULT_EVAL_CATEGORIES = process.env.EVAL_CATEGORIES
   ? process.env.EVAL_CATEGORIES.split(",")
   : [
@@ -111,8 +105,6 @@ if (parsedArgs.provider !== undefined) {
 export {
   filterByCategory,
   filterByEvalName,
-  useTextExtract,
-  useAccessibilityTree,
   DEFAULT_EVAL_CATEGORIES,
   parsedArgs,
 };

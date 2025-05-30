@@ -11,7 +11,6 @@ export type StagehandInitResult = {
   logger: EvalLogger;
   debugUrl: string;
   sessionUrl: string;
-  useTextExtract: boolean;
   stagehandConfig: ConstructorParams;
   modelName: AvailableModel;
 };
