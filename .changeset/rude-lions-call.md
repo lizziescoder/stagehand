@@ -1,5 +1,4 @@
 ---
-"@browserbasehq/stagehand-lib": patch
 "@browserbasehq/stagehand": patch
 ---
 
