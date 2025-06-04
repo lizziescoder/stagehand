@@ -93,7 +93,7 @@ export class StagehandAPI {
     this.sessionId = sessionResponseBody.data.sessionId;
 
     // Temporary reroute for rollout
-    if (sessionResponseBody.data?.unavailable) {
+    if (!sessionResponseBody.data?.available) {
       sessionResponseBody.data.sessionId = undefined;
     }
 

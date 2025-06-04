@@ -29,7 +29,7 @@ export interface StartSessionParams {
 
 export interface StartSessionResult {
   sessionId: string;
-  unavailable?: boolean;
+  available?: boolean;
 }
 
 export interface SuccessResponse<T> {
