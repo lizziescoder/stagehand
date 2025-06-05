@@ -399,7 +399,7 @@ export class Stagehand {
   private _browser: Browser | undefined;
   private _isClosed: boolean = false;
   private _history: Array<HistoryEntry> = [];
-  public readonly experimental: boolean; // could be also made private?
+  public readonly experimental: boolean;
   public get history(): ReadonlyArray<HistoryEntry> {
     return Object.freeze([...this._history]);
   }
