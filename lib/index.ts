@@ -726,7 +726,7 @@ export class Stagehand {
         browserbaseSessionID: this.browserbaseSessionID,
       });
       if (!sessionId) {
-        this.apiClient = undefined;
+        this.apiClient = null;
       }
       this.browserbaseSessionID = sessionId;
     }
