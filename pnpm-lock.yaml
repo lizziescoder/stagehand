@@ -26,6 +26,9 @@ importers:
       deepmerge:
         specifier: ^4.3.1
         version: 4.3.1
+      devtools-protocol:
+        specifier: ^0.0.1464554
+        version: 0.0.1464554
       dotenv:
         specifier: ^16.4.5
         version: 16.5.0
@@ -39,9 +42,6 @@ importers:
         specifier: ^13.0.0
         version: 13.0.0
       playwright:
-        specifier: ^1.52.0
-        version: 1.52.0
-      playwright-core:
         specifier: ^1.52.0
         version: 1.52.0
       ws:
@@ -139,9 +139,6 @@ importers:
       chromium-bidi:
         specifier: ^0.10.0
         version: 0.10.2(devtools-protocol@0.0.1464554)
-      devtools-protocol:
-        specifier: ^0.0.1464554
-        version: 0.0.1464554
       esbuild:
         specifier: ^0.21.4
         version: 0.21.5
