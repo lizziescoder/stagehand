@@ -10,6 +10,7 @@ import {
   CombinedA11yResult,
   EncodedId,
   RichNode,
+  ID_PATTERN,
 } from "../../types/context";
 import { StagehandPage } from "../StagehandPage";
 import { LogLine } from "../../types/log";
@@ -784,7 +785,7 @@ export function injectSubtrees(
     } else {
       // attempt to extract backendId from “<ordinal>-<backend>” or pure numeric label
       let backendId: number | undefined;
-      const dashMatch = /^\d+-\d+$/.exec(label);
+      const dashMatch = ID_PATTERN.exec(label);
       if (dashMatch) {
         backendId = +dashMatch[0].split("-")[1];
       } else if (/^\d+$/.test(label)) {

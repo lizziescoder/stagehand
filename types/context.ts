@@ -123,3 +123,5 @@ export type EncodedId = `${number}-${number}`;
 export interface RichNode extends AccessibilityNode {
   encodedId?: EncodedId;
 }
+
+export const ID_PATTERN = /^\d+-\d+$/;

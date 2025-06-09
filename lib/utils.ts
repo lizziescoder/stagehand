@@ -5,6 +5,7 @@ import { ZodPathSegments } from "../types/stagehand";
 import { Schema, Type } from "@google/genai";
 import { ModelProvider } from "../types/model";
 import { ZodSchemaValidationError } from "@/types/stagehandErrors";
+import { ID_PATTERN } from "@/types/context";
 
 export function validateZodSchema(schema: z.ZodTypeAny, data: unknown) {
   const result = schema.safeParse(data);
@@ -398,7 +399,7 @@ export function injectUrls(
       const id =
         typeof fieldValue === "number"
           ? String(fieldValue)
-          : typeof fieldValue === "string" && /^\d+-\d+$/.test(fieldValue)
+          : typeof fieldValue === "string" && ID_PATTERN.test(fieldValue)
             ? fieldValue
             : undefined;
 
@@ -424,17 +425,14 @@ function makeIdStringSchema(orig: z.ZodString): z.ZodString {
     "";
 
   const base =
-    "This field must be the element-ID in the form «frameId-backendId» " +
+    "This field must be the element-ID in the form 'frameId-backendId' " +
     '(e.g. "0-432").';
   const composed =
     userDesc.trim().length > 0
       ? `${base} that follows this user-defined description: ${userDesc}`
       : base;
 
-  return z
-    .string()
-    .regex(/^\d+-\d+$/)
-    .describe(composed);
+  return z.string().regex(ID_PATTERN).describe(composed);
 }
 
 /**
