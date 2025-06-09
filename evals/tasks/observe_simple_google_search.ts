@@ -15,7 +15,6 @@ export const observe_simple_google_search: EvalFunction = async ({
     const observation1 = await stagehand.page.observe({
       instruction: "Find the search bar and type 'OpenAI'",
     });
-    console.log(observation1);
 
     if (observation1.length > 0) {
       const action1 = observation1[0];
@@ -30,7 +29,6 @@ export const observe_simple_google_search: EvalFunction = async ({
     const observation2 = await stagehand.page.observe({
       instruction: "Click the search button in the suggestions dropdown",
     });
-    console.log(observation2);
 
     if (observation2.length > 0) {
       const action2 = observation2[0];
