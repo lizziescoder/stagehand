@@ -45,10 +45,11 @@ test.describe("Browserbase Sessions", () => {
     expect(page.url()).toBe(
       "https://docs.stagehand.dev/get_started/introduction",
     );
-    await stagehand.close();
   });
   test("resumes a session via CDP URL", async () => {
     const session = await browserbase.sessions.retrieve(sessionId);
+    console.log(session);
+    console.log(session.connectUrl);
     const stagehand = new Stagehand({
       ...StagehandConfig,
       env: "LOCAL",
