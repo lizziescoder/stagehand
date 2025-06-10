@@ -172,10 +172,13 @@ export async function buildBackendIdMaps(
       );
 
       let iframeNode: DOMNode | undefined;
-      const locate = (n: DOMNode): boolean =>
-        n.backendNodeId === backendNodeId
-          ? ((iframeNode = n), true)
-          : !!n.children?.some(locate);
+      const locate = (n: DOMNode): boolean => {
+        if (n.backendNodeId === backendNodeId) return (iframeNode = n), true;
+        return (
+          (n.children?.some(locate) ?? false) ||
+          (n.contentDocument ? locate(n.contentDocument) : false)
+        );
+      };
 
       if (!locate(root) || !iframeNode?.contentDocument) {
         throw new Error("iframe element or its contentDocument not found");
@@ -912,15 +915,39 @@ export async function getAccessibilityTreeWithFrames(
   const combinedXpathMap: Record<EncodedId, string> = {};
   const combinedUrlMap: Record<EncodedId, string> = {};
 
+  const seg = new Map<Frame | null, string>();
+  for (const s of snapshots) seg.set(s.parentFrame, s.frameXpath);
+
+  /* recursively build the full prefix for a frame */
+  function fullPrefix(f: Frame | null): string {
+    if (!f) return ""; // reached main
+    const parent = f.parentFrame();
+    const above = fullPrefix(parent);
+    const hop = seg.get(parent) ?? "";
+    return hop === "/"
+      ? above
+      : above
+        ? `${above.replace(/\/$/, "")}/${hop.replace(/^\//, "")}`
+        : hop;
+  }
+
   for (const snap of snapshots) {
-    const prefix = snap.frameXpath === "/" ? "" : snap.frameXpath;
+    const prefix =
+      snap.frameXpath === "/"
+        ? ""
+        : `${fullPrefix(snap.parentFrame)}${snap.frameXpath}`;
+
     for (const [enc, local] of Object.entries(snap.xpathMap) as [
       EncodedId,
       string,
-    ][])
+    ][]) {
       combinedXpathMap[enc] =
-        prefix + (local.startsWith("/") || !prefix ? "" : "/") + local;
-
+        local === ""
+          ? prefix || "/"
+          : prefix
+            ? `${prefix.replace(/\/$/, "")}/${local.replace(/^\//, "")}`
+            : local;
+    }
     Object.assign(combinedUrlMap, snap.urlMap);
   }
 
