@@ -48,8 +48,7 @@ test.describe("Browserbase Sessions", () => {
   });
   test("resumes a session via CDP URL", async () => {
     const session = await browserbase.sessions.retrieve(sessionId);
-    console.log(session);
-    console.log(session.connectUrl);
+
     const stagehand = new Stagehand({
       ...StagehandConfig,
       env: "LOCAL",

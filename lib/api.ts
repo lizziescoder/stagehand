@@ -61,9 +61,7 @@ export class StagehandAPI {
 
     const region = browserbaseSessionCreateParams?.region;
     if (region && region !== "us-west-2") {
-      throw new StagehandAPIError(
-        "Only us-west-2 region is currently supported for API mode. Try updating your region or set useAPI to false.",
-      );
+      return { sessionId: browserbaseSessionID ?? null, available: false };
     }
     const sessionResponse = await this.request("/sessions/start", {
       method: "POST",
