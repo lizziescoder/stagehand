@@ -100,8 +100,8 @@ export class StagehandAPI {
     this.sessionId = sessionResponseBody.data.sessionId;
 
     // Temporary reroute for rollout
-    if (!sessionResponseBody.data?.available) {
-      sessionResponseBody.data.sessionId = null;
+    if (!sessionResponseBody.data?.available && browserbaseSessionID) {
+      sessionResponseBody.data.sessionId = browserbaseSessionID;
     }
 
     return sessionResponseBody.data;

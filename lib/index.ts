@@ -717,7 +717,7 @@ export class Stagehand {
       });
 
       const modelApiKey = this.modelClientOptions?.apiKey;
-      const { sessionId } = await this.apiClient.init({
+      const { sessionId, available } = await this.apiClient.init({
         modelName: this.modelName,
         modelApiKey: modelApiKey,
         domSettleTimeoutMs: this.domSettleTimeoutMs,
@@ -730,7 +730,7 @@ export class Stagehand {
         browserbaseSessionCreateParams: this.browserbaseSessionCreateParams,
         browserbaseSessionID: this.browserbaseSessionID,
       });
-      if (!sessionId) {
+      if (!available) {
         this.apiClient = null;
       }
       this.browserbaseSessionID = sessionId;
