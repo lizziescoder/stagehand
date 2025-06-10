@@ -358,6 +358,10 @@
     {
       "name": "iframe_form_filling",
       "categories": ["act"]
+    },
+    {
+      "name": "iframes_nested",
+      "categories": ["act"]
     }
   ]
 }
