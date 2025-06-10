@@ -58,6 +58,13 @@ export class StagehandAPI {
       throw new StagehandAPIError("modelApiKey is required");
     }
     this.modelApiKey = modelApiKey;
+
+    const region = browserbaseSessionCreateParams?.region;
+    if (region && region !== "us-west-2") {
+      throw new StagehandAPIError(
+        "Only us-west-2 region is currently supported for API mode. Try updating your region or set useAPI to false.",
+      );
+    }
     const sessionResponse = await this.request("/sessions/start", {
       method: "POST",
       body: JSON.stringify({
@@ -241,13 +248,16 @@ export class StagehandAPI {
       defaultHeaders["Content-Type"] = "application/json";
     }
 
-    const response = await fetch(`${process.env.STAGEHAND_API_URL}${path}`, {
-      ...options,
-      headers: {
-        ...defaultHeaders,
-        ...options.headers,
+    const response = await fetch(
+      `${process.env.STAGEHAND_API_URL ?? "https://api.stagehand.browserbase.com/v1"}${path}`,
+      {
+        ...options,
+        headers: {
+          ...defaultHeaders,
+          ...options.headers,
+        },
       },
-    });
+    );
 
     return response;
   }
