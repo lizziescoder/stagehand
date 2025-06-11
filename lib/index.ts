@@ -637,7 +637,7 @@ export class Stagehand {
     this.experimental = experimental;
     if (this.experimental) {
       this.stagehandLogger.warn(
-        "Experimental mode is enabled. This is a beta feature and may break at any time.",
+        "Experimental mode is enabled. This is a beta feature and may break at any time. Enabling experimental mode will disable the API",
       );
       // Disable API mode in experimental mode
       this.usingAPI = false;
