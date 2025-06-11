@@ -20,7 +20,7 @@ function findRootPackageJson(): string | null {
 function findUserSpec(): string | undefined {
   const rootPath = findRootPackageJson();
   if (!rootPath) return undefined;
-  const root = JSON.parse(readFileSync(rootPath, 'utf8')) as Record<string, any>;
+  const root = JSON.parse(readFileSync(rootPath, 'utf8')) as Record<string, never>;
   return (
     root.dependencies?.['@browserbasehq/stagehand'] ??
     root.devDependencies?.['@browserbasehq/stagehand'] ??
