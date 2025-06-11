@@ -1,31 +1,38 @@
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { execSync } from 'node:child_process';
 
-/**
- * Walk up from <cwd> until we leave every node_modules folder, then read
- * the first package.json we find.  That is the *root* project’s manifest.
- */
-function findRootPackageJson(): string | null {
-  let dir = process.cwd();
-  while (dir !== dirname(dir)) {
-    const pj = join(dir, 'package.json');
-    if (existsSync(pj) && !pj.includes('node_modules')) return pj;
-    dir = dirname(dir);
-  }
-  return null;
+type DepMap = Record<string, string>;
+interface RootPackageJson {
+  dependencies?:   DepMap;
+  devDependencies?: DepMap;
+  optionalDependencies?: DepMap;
 }
 
-/** The spec string the *user* wrote in their package.json, if any. */
-function findUserSpec(): string | undefined {
-  const rootPath = findRootPackageJson();
-  if (!rootPath) return undefined;
-  const root = JSON.parse(readFileSync(rootPath, 'utf8')) as Record<string, never>;
-  return (
-    root.dependencies?.['@browserbasehq/stagehand'] ??
-    root.devDependencies?.['@browserbasehq/stagehand'] ??
-    root.optionalDependencies?.['@browserbasehq/stagehand']
-  );
+function readUserSpec(): string | undefined {
+  // 1️⃣  Start from INIT_CWD if available; else fall back to process.cwd().
+  let dir = process.env.INIT_CWD || process.cwd();
+
+  while (dir !== dirname(dir)) {
+    const pj = join(dir, 'package.json');
+    if (existsSync(pj)) {
+      const raw = JSON.parse(readFileSync(pj, 'utf8')) as Partial<RootPackageJson> & { name?: string };
+
+      // Skip if this is Stagehand’s own package.json
+      if (raw.name === '@browserbasehq/stagehand') {
+        dir = dirname(dir);
+        continue;
+      }
+
+      return (
+        raw.dependencies?.['@browserbasehq/stagehand'] ??
+        raw.devDependencies?.['@browserbasehq/stagehand'] ??
+        raw.optionalDependencies?.['@browserbasehq/stagehand']
+      );
+    }
+    dir = dirname(dir);
+  }
+  return undefined;
 }
 
 /** `true` when the string is a plain semver/range (matches npm’s semver regex) */
@@ -38,7 +45,7 @@ const thisPkg = JSON.parse(
   readFileSync(join(__dirname, '..', 'package.json'), 'utf8'),
 ) as { version: string; gitHead?: string };
 
-const userSpec = findUserSpec();
+const userSpec = readUserSpec();
 
 /**
  * Priority order:
