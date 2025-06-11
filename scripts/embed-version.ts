@@ -1,16 +1,20 @@
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, relative } from 'node:path';
 import { execSync } from 'node:child_process';
 
 type DepMap = Record<string, string>;
 interface RootPackageJson {
-  dependencies?:   DepMap;
+  dependencies?: DepMap;
   devDependencies?: DepMap;
   optionalDependencies?: DepMap;
 }
+interface UserSpecResult {
+  spec?: string;
+  path?: string;   // absolute path of the manifest we read
+}
 
-function readUserSpec(): string | undefined {
-  // 1️⃣  Start from INIT_CWD if available; else fall back to process.cwd().
+/* ── find the user’s dependency spec ─────────────────────────── */
+function readUserSpec(): UserSpecResult {
   let dir = process.env.INIT_CWD || process.cwd();
 
   while (dir !== dirname(dir)) {
@@ -18,64 +22,71 @@ function readUserSpec(): string | undefined {
     if (existsSync(pj)) {
       const raw = JSON.parse(readFileSync(pj, 'utf8')) as Partial<RootPackageJson> & { name?: string };
 
-      // Skip if this is Stagehand’s own package.json
-      if (raw.name === '@browserbasehq/stagehand') {
+      if (raw.name === '@browserbasehq/stagehand') {      // skip our own
         dir = dirname(dir);
         continue;
       }
 
-      return (
+      const spec =
         raw.dependencies?.['@browserbasehq/stagehand'] ??
         raw.devDependencies?.['@browserbasehq/stagehand'] ??
-        raw.optionalDependencies?.['@browserbasehq/stagehand']
-      );
+        raw.optionalDependencies?.['@browserbasehq/stagehand'];
+
+      if (spec) return { spec, path: pj };
     }
     dir = dirname(dir);
   }
-  return undefined;
+  return {};
 }
 
-/** `true` when the string is a plain semver/range (matches npm’s semver regex) */
-function looksLikeSemver(spec: string | undefined): boolean {
-  return !!spec && /^(\d+\.)?(\d+\.)?(\*|\d+)(?:[-^~<>=].*)?$/.test(spec);
-}
+/* ── helpers ──────────────────────────────────────────────────── */
+const semverLike = (s?: string) =>
+  !!s && /^(\d+\.)?(\d+\.)?(\*|\d+)(?:[-^~<>=].*)?$/.test(s);
 
-// ---------------- main logic -----------------
+/* ── main logic ───────────────────────────────────────────────── */
 const thisPkg = JSON.parse(
   readFileSync(join(__dirname, '..', 'package.json'), 'utf8'),
 ) as { version: string; gitHead?: string };
 
-const userSpec = readUserSpec();
+const { spec: userSpec, path: userPath } = readUserSpec();
 
-/**
- * Priority order:
- * 1. If the user wrote a non-semver spec (workspace:, file:, github:, etc.),
- *    embed that exact string.
- * 2. Else, if we have a commit hash from npm/pnpm (git dependency),
- *    append it to the version from this package.json.
- * 3. Fallback: just the plain version.
- */
 const gitHash =
-  thisPkg.gitHead // added by npm when installing from git
-  ?? process.env.npm_package_gitHead // sometimes set by pnpm
-  ?? (() => {
+  thisPkg.gitHead ??
+  process.env.npm_package_gitHead ??
+  (() => {
     try {
       return execSync('git rev-parse --short HEAD').toString().trim();
-    } catch { return ''; }
+    } catch {
+      return '';
+    }
   })();
 
-const resolved =
-  userSpec && !looksLikeSemver(userSpec)
+/** Base version logic (unchanged) */
+const baseVersion =
+  userSpec && !semverLike(userSpec)
     ? userSpec
     : gitHash
       ? `${thisPkg.version}-${gitHash.slice(0, 7)}`
       : thisPkg.version;
 
+/** ▶︎ NEW: append debug origin */
+const debugOrigin = userPath
+  ? `pkg:${relative(process.env.INIT_CWD || process.cwd(), userPath)}`
+  : gitHash
+    ? 'git'
+    : 'self';
+
+const resolved = `${baseVersion}|${debugOrigin}`;   // final literal
+
+/* ── emit file ────────────────────────────────────────────────── */
 const output = `/**
  * Auto-generated – do not edit by hand.
+ * Format: "<version>|<origin>"
+ *   • origin "pkg:…" → path to the consumer's package.json
+ *   • origin "git"   → commit hash appended
+ *   • origin "self"  → came from Stagehand’s own version field
  */
 export const STAGEHAND_VERSION: string = '${resolved}';
 `;
 
 writeFileSync(join(__dirname, '..', 'lib', '__generated_version.ts'), output);
-console.info(`▶︎ Embedded STAGEHAND_VERSION = ${resolved}`);
