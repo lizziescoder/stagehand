@@ -1,4 +1,3 @@
-import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -7,16 +6,7 @@ type PackageJson = { version: string };
 const pkgPath = join(__dirname, "..", "package.json");
 const pkg: PackageJson = JSON.parse(readFileSync(pkgPath, "utf8"));
 
-const commit: string = (() => {
-  try {
-    return execSync("git rev-parse HEAD").toString().trim();
-  } catch {
-    return "";
-  }
-})();
-
-const fullVersion: `${string}` =
-  commit !== "" ? `${pkg.version}+${commit}` : pkg.version;
+const fullVersion: `${string}` = pkg.version;
 
 const banner = `/**
  * AUTO-GENERATED — DO NOT EDIT BY HAND
