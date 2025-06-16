@@ -16,14 +16,14 @@
 <p align="center">
   <a href="https://github.com/browserbase/stagehand/tree/main?tab=MIT-1-ov-file#MIT-1-ov-file">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://stagehand.dev/api/assets/license?mode=dark" />
-      <img alt="MIT License" src="https://stagehand.dev/api/assets/license?mode=light" />
+      <source media="(prefers-color-scheme: dark)" srcset="media/dark_license.svg" />
+      <img alt="MIT License" src="media/light_license.svg" />
     </picture>
   </a>
   <a href="https://stagehand.dev/slack">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://stagehand.dev/api/assets/slack?mode=dark" />
-      <img alt="Slack Community" src="https://stagehand.dev/api/assets/slack?mode=light" />
+      <source media="(prefers-color-scheme: dark)" srcset="media/dark_slack.svg" />
+      <img alt="Slack Community" src="media/light_slack.svg" />
     </picture>
   </a>
 </p>
