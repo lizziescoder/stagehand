@@ -283,7 +283,6 @@ ${scriptContent} \
 
   async init(): Promise<StagehandPage> {
     try {
-      throw new StagehandDefaultError();
       const page = this.rawPage;
       const stagehand = this.stagehand;
 
