@@ -19,7 +19,7 @@ const fullVersion: `${string}` =
   commit !== "" ? `${pkg.version}+${commit}` : pkg.version;
 
 const banner = `/**
- * ⚠️  AUTO-GENERATED — DO NOT EDIT BY HAND
+ * AUTO-GENERATED — DO NOT EDIT BY HAND
  *  Run \`pnpm run gen-version\` to refresh.
  */
 export const STAGEHAND_VERSION = "${fullVersion}" as const;
