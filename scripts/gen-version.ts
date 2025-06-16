@@ -4,21 +4,19 @@ import { join } from "node:path";
 
 type PackageJson = { version: string };
 
-const pkg: PackageJson = JSON.parse(
-  readFileSync(join(__dirname, "..", "package.json"), "utf8"),
-);
+const pkgPath = join(__dirname, "..", "package.json");
+const pkg: PackageJson = JSON.parse(readFileSync(pkgPath, "utf8"));
 
-const commit = (() => {
+const commit: string = (() => {
   try {
-    // full 40-char hash so it’s unambiguous
     return execSync("git rev-parse HEAD").toString().trim();
   } catch {
-    // happens only when building from a git-archive tarball that has no .git
-    return "unknown";
+    return "";
   }
 })();
 
-const fullVersion = `${pkg.version}+${commit}` as const;
+const fullVersion: `${string}` =
+  commit !== "" ? `${pkg.version}+${commit}` : pkg.version;
 
 const banner = `/**
  * ⚠️  AUTO-GENERATED — DO NOT EDIT BY HAND
@@ -28,4 +26,3 @@ export const STAGEHAND_VERSION = "${fullVersion}" as const;
 `;
 
 writeFileSync(join(__dirname, "..", "lib", "version.ts"), banner);
-console.log(`Generated Stagehand version: ${fullVersion}`);
