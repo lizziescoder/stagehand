@@ -39,6 +39,10 @@ export class AnthropicCUAClient extends AgentClient {
   ) {
     super(type, modelName, userProvidedInstructions);
 
+    console.log(
+      `[STAGEHAND DEBUG] AnthropicCUAClient constructor called with model: ${modelName}`,
+    );
+
     // Process client options
     this.apiKey =
       (clientOptions?.apiKey as string) || process.env.ANTHROPIC_API_KEY || "";
@@ -407,6 +411,9 @@ export class AnthropicCUAClient extends AgentClient {
         : undefined;
 
       // Create the request parameters
+      console.log(
+        `[STAGEHAND DEBUG] Creating Anthropic request with model: ${this.modelName}`,
+      );
       const requestParams: Record<string, unknown> = {
         model: this.modelName,
         max_tokens: 4096,

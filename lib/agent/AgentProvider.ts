@@ -13,7 +13,7 @@ const modelToAgentProviderMap: Record<string, AgentType> = {
   "computer-use-preview": "openai",
   "claude-3-5-sonnet-20240620": "anthropic",
   "claude-3-7-sonnet-20250219": "anthropic",
-  "claude-sonnet-4-20250514": "anthropic", // Add newer Claude models
+  "claude-sonnet-4-20250514": "anthropic", // Add support for claude-sonnet-4
 };
 
 /**
@@ -36,6 +36,15 @@ export class AgentProvider {
     clientOptions?: Record<string, unknown>,
     userProvidedInstructions?: string,
   ): AgentClient {
+    // Add debugging log for incoming model
+    console.log(
+      `[STAGEHAND DEBUG] AgentProvider.getClient called with model: ${modelName}`,
+    );
+    console.log(
+      `[STAGEHAND DEBUG] Available models:`,
+      Object.keys(modelToAgentProviderMap),
+    );
+
     const type = AgentProvider.getAgentProvider(modelName);
     this.logger({
       category: "agent",
@@ -46,6 +55,9 @@ export class AgentProvider {
     try {
       switch (type) {
         case "openai":
+          console.log(
+            `[STAGEHAND DEBUG] Creating OpenAI client for model: ${modelName}`,
+          );
           return new OpenAICUAClient(
             type,
             modelName,
@@ -53,6 +65,9 @@ export class AgentProvider {
             clientOptions,
           );
         case "anthropic":
+          console.log(
+            `[STAGEHAND DEBUG] Creating Anthropic client for model: ${modelName}`,
+          );
           return new AnthropicCUAClient(
             type,
             modelName,
@@ -73,16 +88,29 @@ export class AgentProvider {
         message: `Error creating agent client: ${errorMessage}`,
         level: 0,
       });
+      console.error(`[STAGEHAND DEBUG] Error creating agent client:`, error);
       throw error;
     }
   }
 
   static getAgentProvider(modelName: string): AgentType {
+    console.log(
+      `[STAGEHAND DEBUG] getAgentProvider called with model: ${modelName}`,
+    );
+
     // First check the exact model name in the map
     if (modelName in modelToAgentProviderMap) {
-      return modelToAgentProviderMap[modelName];
+      const provider = modelToAgentProviderMap[modelName];
+      console.log(
+        `[STAGEHAND DEBUG] Model ${modelName} mapped to provider: ${provider}`,
+      );
+      return provider;
     }
 
+    console.error(
+      `[STAGEHAND DEBUG] Model ${modelName} not found in map. Available models:`,
+      Object.keys(modelToAgentProviderMap),
+    );
     throw new UnsupportedModelError(
       Object.keys(modelToAgentProviderMap),
       "Computer Use Agent",
