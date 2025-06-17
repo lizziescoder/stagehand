@@ -911,6 +911,9 @@ export class Stagehand {
         }
 
         if (this.usingAPI) {
+          console.log(
+            `[STAGEHAND DEBUG] Agent using API mode with provider: ${options.provider}, model: ${options.model}`,
+          );
           if (!this.apiClient) {
             throw new StagehandNotInitializedError("API client");
           }
@@ -934,6 +937,10 @@ export class Stagehand {
           }
 
           return await this.apiClient.agentExecute(options, executeOptions);
+        } else {
+          console.log(
+            `[STAGEHAND DEBUG] Agent using LOCAL mode with provider: ${options.provider}, model: ${options.model}`,
+          );
         }
 
         return await agentHandler.execute(executeOptions);
