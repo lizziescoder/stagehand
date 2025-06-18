@@ -21,6 +21,7 @@ export class StagehandAgent {
 
   async execute(
     optionsOrInstruction: AgentExecuteOptions | string,
+    initialScreenshot?: string
   ): Promise<AgentResult> {
     const options =
       typeof optionsOrInstruction === "string"
@@ -37,6 +38,7 @@ export class StagehandAgent {
       options,
       logger: this.logger,
       retries: 3,
+      initialScreenshot
     };
 
     return await this.client.execute(executionOptions);

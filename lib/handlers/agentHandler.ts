@@ -168,24 +168,35 @@ export class StagehandAgentHandler {
       // Continue execution even if cursor injection fails
     }
 
-    // Take initial screenshot if needed
+    // Capture initial screenshot for the agent
+    let initialScreenshot: string | undefined;
     if (options.autoScreenshot !== false) {
       try {
-        await this.captureAndSendScreenshot();
+        const screenshot = await this.stagehandPage.page.screenshot({
+          type: "png",
+          fullPage: false,
+        });
+        initialScreenshot = screenshot.toString("base64");
+        
+        this.logger({
+          category: "agent",
+          message: "Captured initial screenshot for agent",
+          level: 2,
+        });
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         this.logger({
           category: "agent",
-          message: `Warning: Failed to take initial screenshot: ${errorMessage}. Continuing with execution.`,
+          message: `Warning: Failed to capture initial screenshot: ${errorMessage}. Agent will request one.`,
           level: 1,
         });
-        // Continue execution even if screenshot fails
+        // Continue without initial screenshot
       }
     }
 
-    // Execute the task
-    const result = await this.agent.execute(optionsOrInstruction);
+    // Execute the task with initial screenshot
+    const result = await this.agent.execute(optionsOrInstruction, initialScreenshot);
     if (result.usage) {
       this.stagehand.updateMetrics(
         StagehandFunctionName.AGENT,

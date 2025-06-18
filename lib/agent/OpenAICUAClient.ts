@@ -83,7 +83,7 @@ export class OpenAICUAClient extends AgentClient {
    * @implements AgentClient.execute
    */
   async execute(executionOptions: AgentExecutionOptions): Promise<AgentResult> {
-    const { options, logger } = executionOptions;
+    const { options, logger, initialScreenshot } = executionOptions;
     const { instruction } = options;
     const maxSteps = options.maxSteps || 10;
 
@@ -94,8 +94,8 @@ export class OpenAICUAClient extends AgentClient {
     let finalMessage = "";
     this.reasoningItems.clear(); // Clear any previous reasoning items
 
-    // Start with the initial instruction
-    let inputItems = this.createInitialInputItems(instruction);
+    // Start with the initial instruction and optional screenshot
+    let inputItems = this.createInitialInputItems(instruction, initialScreenshot);
     let previousResponseId: string | undefined = undefined;
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
@@ -298,18 +298,44 @@ export class OpenAICUAClient extends AgentClient {
     );
   }
 
-  private createInitialInputItems(instruction: string): ResponseInputItem[] {
-    // For the initial request, we use a simple array with the user's instruction
-    return [
+  private createInitialInputItems(
+    instruction: string,
+    initialScreenshot?: string
+  ): ResponseInputItem[] {
+    const items: ResponseInputItem[] = [
       {
         role: "system",
         content: this.userProvidedInstructions,
-      },
-      {
+      }
+    ];
+
+    // If we have an initial screenshot, include it as a computer_call_output
+    if (initialScreenshot) {
+      // Add the user instruction
+      items.push({
         role: "user",
         content: instruction,
-      },
-    ];
+      });
+      
+      // Add the screenshot as if it was from a previous screenshot action
+      items.push({
+        type: "computer_call_output",
+        call_id: "initial_screenshot",
+        output: {
+          type: "input_image",
+          image_url: `data:image/png;base64,${initialScreenshot}`,
+          current_url: this.currentUrl,
+        },
+      });
+    } else {
+      // Fallback to text-only message
+      items.push({
+        role: "user",
+        content: instruction,
+      });
+    }
+
+    return items;
   }
 
   async getAction(

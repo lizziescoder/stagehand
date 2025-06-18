@@ -91,7 +91,7 @@ export class AnthropicCUAClient extends AgentClient {
    * @implements AgentClient.execute
    */
   async execute(executionOptions: AgentExecutionOptions): Promise<AgentResult> {
-    const { options, logger } = executionOptions;
+    const { options, logger, initialScreenshot } = executionOptions;
     const { instruction } = options;
     const maxSteps = options.maxSteps || 10;
 
@@ -101,9 +101,9 @@ export class AnthropicCUAClient extends AgentClient {
     const messageList: string[] = [];
     let finalMessage = "";
 
-    // Start with the initial instruction
+    // Start with the initial instruction and optional screenshot
     let inputItems: ResponseInputItem[] =
-      this.createInitialInputItems(instruction);
+      this.createInitialInputItems(instruction, initialScreenshot);
 
     logger({
       category: "agent",
@@ -370,18 +370,49 @@ export class AnthropicCUAClient extends AgentClient {
     }
   }
 
-  private createInitialInputItems(instruction: string): AnthropicMessage[] {
-    // For the initial request, we use a simple array with the user's instruction
-    return [
+  private createInitialInputItems(
+    instruction: string,
+    initialScreenshot?: string
+  ): AnthropicMessage[] {
+    const messages: AnthropicMessage[] = [
       {
         role: "system",
         content: this.userProvidedInstructions,
-      },
-      {
-        role: "user",
-        content: instruction,
-      },
+      }
     ];
+
+    // If we have an initial screenshot, include it with the instruction
+    if (initialScreenshot) {
+      messages.push({
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: instruction
+          },
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: "image/png",
+              data: initialScreenshot.replace(/^data:image\/png;base64,/, "")
+            }
+          },
+          {
+            type: "text",
+            text: `Current URL: ${this.currentUrl || 'unknown'}`
+          }
+        ]
+      });
+    } else {
+      // Fallback to text-only message
+      messages.push({
+        role: "user",
+        content: instruction
+      });
+    }
+
+    return messages;
   }
 
   async getAction(inputItems: ResponseInputItem[]): Promise<{
