@@ -102,8 +102,10 @@ export class AnthropicCUAClient extends AgentClient {
     let finalMessage = "";
 
     // Start with the initial instruction and optional screenshot
-    let inputItems: ResponseInputItem[] =
-      this.createInitialInputItems(instruction, initialScreenshot);
+    let inputItems: ResponseInputItem[] = this.createInitialInputItems(
+      instruction,
+      initialScreenshot,
+    );
 
     logger({
       category: "agent",
@@ -372,13 +374,13 @@ export class AnthropicCUAClient extends AgentClient {
 
   private createInitialInputItems(
     instruction: string,
-    initialScreenshot?: string
+    initialScreenshot?: string,
   ): AnthropicMessage[] {
     const messages: AnthropicMessage[] = [
       {
         role: "system",
         content: this.userProvidedInstructions,
-      }
+      },
     ];
 
     // If we have an initial screenshot, include it with the instruction
@@ -388,27 +390,27 @@ export class AnthropicCUAClient extends AgentClient {
         content: [
           {
             type: "text",
-            text: instruction
+            text: instruction,
           },
           {
             type: "image",
             source: {
               type: "base64",
               media_type: "image/png",
-              data: initialScreenshot.replace(/^data:image\/png;base64,/, "")
-            }
+              data: initialScreenshot.replace(/^data:image\/png;base64,/, ""),
+            },
           },
           {
             type: "text",
-            text: `Current URL: ${this.currentUrl || 'unknown'}`
-          }
-        ]
+            text: `Current URL: ${this.currentUrl || "unknown"}`,
+          },
+        ],
       });
     } else {
       // Fallback to text-only message
       messages.push({
         role: "user",
-        content: instruction
+        content: instruction,
       });
     }
 

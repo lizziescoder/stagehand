@@ -95,7 +95,10 @@ export class OpenAICUAClient extends AgentClient {
     this.reasoningItems.clear(); // Clear any previous reasoning items
 
     // Start with the initial instruction and optional screenshot
-    let inputItems = this.createInitialInputItems(instruction, initialScreenshot);
+    let inputItems = this.createInitialInputItems(
+      instruction,
+      initialScreenshot,
+    );
     let previousResponseId: string | undefined = undefined;
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
@@ -300,13 +303,13 @@ export class OpenAICUAClient extends AgentClient {
 
   private createInitialInputItems(
     instruction: string,
-    initialScreenshot?: string
+    initialScreenshot?: string,
   ): ResponseInputItem[] {
     const items: ResponseInputItem[] = [
       {
         role: "system",
         content: this.userProvidedInstructions,
-      }
+      },
     ];
 
     // If we have an initial screenshot, include it as a computer_call_output
@@ -316,7 +319,7 @@ export class OpenAICUAClient extends AgentClient {
         role: "user",
         content: instruction,
       });
-      
+
       // Add the screenshot as if it was from a previous screenshot action
       items.push({
         type: "computer_call_output",

@@ -177,7 +177,7 @@ export class StagehandAgentHandler {
           fullPage: false,
         });
         initialScreenshot = screenshot.toString("base64");
-        
+
         this.logger({
           category: "agent",
           message: "Captured initial screenshot for agent",
@@ -196,7 +196,10 @@ export class StagehandAgentHandler {
     }
 
     // Execute the task with initial screenshot
-    const result = await this.agent.execute(optionsOrInstruction, initialScreenshot);
+    const result = await this.agent.execute(
+      optionsOrInstruction,
+      initialScreenshot,
+    );
     if (result.usage) {
       this.stagehand.updateMetrics(
         StagehandFunctionName.AGENT,
