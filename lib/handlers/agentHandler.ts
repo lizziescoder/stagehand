@@ -364,13 +364,83 @@ export class StagehandAgentHandler {
 
         case "scroll": {
           const { x, y, scroll_x = 0, scroll_y = 0 } = action;
+
+          // Update cursor position for visual feedback
+          await this.updateCursorPosition(x as number, y as number);
+
           // First move to the position
           await this.stagehandPage.page.mouse.move(x as number, y as number);
-          // Then scroll
+
+          // Then scroll the appropriate element
           await this.stagehandPage.page.evaluate(
-            ({ scrollX, scrollY }) => window.scrollBy(scrollX, scrollY),
-            { scrollX: scroll_x as number, scrollY: scroll_y as number },
+            ({ x, y, scrollX, scrollY }) => {
+              // Find the element at the given coordinates
+              const elementAtPoint = document.elementFromPoint(x, y);
+
+              if (!elementAtPoint) {
+                // If no element found, scroll the window
+                window.scrollBy(scrollX, scrollY);
+                return;
+              }
+
+              // Find the nearest scrollable parent (including the element itself)
+              let scrollableElement: Element | null = elementAtPoint;
+              while (
+                scrollableElement &&
+                scrollableElement !== document.documentElement
+              ) {
+                const style = window.getComputedStyle(scrollableElement);
+                const overflowY = style.overflowY;
+                const overflowX = style.overflowX;
+
+                // Check if this element is scrollable
+                if (
+                  overflowY === "auto" ||
+                  overflowY === "scroll" ||
+                  overflowY === "overlay" ||
+                  overflowX === "auto" ||
+                  overflowX === "scroll" ||
+                  overflowX === "overlay"
+                ) {
+                  const hasVerticalScroll =
+                    scrollableElement.scrollHeight >
+                    scrollableElement.clientHeight;
+                  const hasHorizontalScroll =
+                    scrollableElement.scrollWidth >
+                    scrollableElement.clientWidth;
+
+                  if (
+                    (scrollY !== 0 && hasVerticalScroll) ||
+                    (scrollX !== 0 && hasHorizontalScroll)
+                  ) {
+                    // This element is scrollable in the desired direction
+                    scrollableElement.scrollBy({
+                      left: scrollX,
+                      top: scrollY,
+                      behavior: "smooth",
+                    });
+                    return;
+                  }
+                }
+
+                // Move to parent element
+                scrollableElement = scrollableElement.parentElement;
+              }
+
+              // If no scrollable element found, scroll the window
+              window.scrollBy(scrollX, scrollY);
+            },
+            {
+              x: x as number,
+              y: y as number,
+              scrollX: scroll_x as number,
+              scrollY: scroll_y as number,
+            },
           );
+
+          // Small delay to allow scroll animation
+          await new Promise((resolve) => setTimeout(resolve, 300));
+
           return { success: true };
         }
 
