@@ -170,8 +170,21 @@ export class StagehandAgentHandler {
 
     // Capture initial screenshot for the agent
     let initialScreenshot: string | undefined;
+
+    this.logger({
+      category: "agent",
+      message: `Checking autoScreenshot option: ${options.autoScreenshot} (should capture: ${options.autoScreenshot !== false})`,
+      level: 1,
+    });
+
     if (options.autoScreenshot !== false) {
       try {
+        this.logger({
+          category: "agent",
+          message: "Attempting to capture initial screenshot...",
+          level: 1,
+        });
+
         const screenshot = await this.stagehandPage.page.screenshot({
           type: "png",
           fullPage: false,
@@ -180,8 +193,8 @@ export class StagehandAgentHandler {
 
         this.logger({
           category: "agent",
-          message: "Captured initial screenshot for agent",
-          level: 2,
+          message: `Captured initial screenshot for agent (${initialScreenshot.length} chars)`,
+          level: 1,
         });
       } catch (error) {
         const errorMessage =
@@ -193,6 +206,13 @@ export class StagehandAgentHandler {
         });
         // Continue without initial screenshot
       }
+    } else {
+      this.logger({
+        category: "agent",
+        message:
+          "Skipping initial screenshot capture (autoScreenshot is false)",
+        level: 1,
+      });
     }
 
     // Execute the task with initial screenshot
@@ -437,9 +457,23 @@ export class StagehandAgentHandler {
             await this.stagehandPage.page.keyboard.press("Escape");
           } else if (text === "Backspace") {
             await this.stagehandPage.page.keyboard.press("Backspace");
-          } else {
-            // For other keys, try to press directly
-            await this.stagehandPage.page.keyboard.press(text as string);
+          } else if (typeof text === "string") {
+            // Check if it's a key combination (contains "+")
+            if (text.includes("+")) {
+              // Split the combination and convert each part
+              const parts = text.split("+");
+              const convertedParts = parts.map((part: string) =>
+                this.convertKeyName(part.trim()),
+              );
+              const convertedCombination = convertedParts.join("+");
+              await this.stagehandPage.page.keyboard.press(
+                convertedCombination,
+              );
+            } else {
+              // For single keys, convert and press
+              const convertedKey = this.convertKeyName(text);
+              await this.stagehandPage.page.keyboard.press(convertedKey);
+            }
           }
           return { success: true };
         }

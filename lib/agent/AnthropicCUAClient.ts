@@ -113,6 +113,12 @@ export class AnthropicCUAClient extends AgentClient {
       level: 1,
     });
 
+    logger({
+      category: "agent",
+      message: `Initial screenshot provided: ${initialScreenshot ? `Yes (${initialScreenshot.length} chars)` : "No"}`,
+      level: 1,
+    });
+
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
     let totalInferenceTime = 0;
@@ -385,6 +391,9 @@ export class AnthropicCUAClient extends AgentClient {
 
     // If we have an initial screenshot, include it with the instruction
     if (initialScreenshot) {
+      console.log(
+        `[STAGEHAND DEBUG] Including initial screenshot in first message (${initialScreenshot.length} chars)`,
+      );
       messages.push({
         role: "user",
         content: [
@@ -407,6 +416,9 @@ export class AnthropicCUAClient extends AgentClient {
         ],
       });
     } else {
+      console.log(
+        "[STAGEHAND DEBUG] No initial screenshot provided, using text-only message",
+      );
       // Fallback to text-only message
       messages.push({
         role: "user",
@@ -484,6 +496,19 @@ export class AnthropicCUAClient extends AgentClient {
         console.log(
           `Sending request to Anthropic with ${messages.length} messages and ${messages.length > 0 ? `first message role: ${messages[0].role}, content: ${contentPreview}...` : "no messages"}`,
         );
+
+        // Log if first message contains an image
+        if (
+          typeof firstMessage.content !== "string" &&
+          Array.isArray(firstMessage.content)
+        ) {
+          const hasImage = firstMessage.content.some(
+            (block: AnthropicContentBlock) => block.type === "image",
+          );
+          console.log(
+            `[STAGEHAND DEBUG] First message contains image: ${hasImage}`,
+          );
+        }
       }
 
       const startTime = Date.now();
