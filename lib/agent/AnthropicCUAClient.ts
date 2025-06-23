@@ -190,7 +190,7 @@ export class AnthropicCUAClient extends AgentClient {
         actions,
         message: finalMessage,
         completed,
-        stepNarratives: this.prepareNarrativesForResponse(),
+        stepNarratives: this.stepNarratives,
         usage: {
           input_tokens: totalInputTokens,
           output_tokens: totalOutputTokens,
@@ -211,7 +211,7 @@ export class AnthropicCUAClient extends AgentClient {
         actions,
         message: `Failed to execute task: ${errorMessage}`,
         completed: false,
-        stepNarratives: this.prepareNarrativesForResponse(),
+        stepNarratives: this.stepNarratives,
         usage: {
           input_tokens: totalInputTokens,
           output_tokens: totalOutputTokens,
@@ -219,22 +219,6 @@ export class AnthropicCUAClient extends AgentClient {
         },
       };
     }
-  }
-
-  /**
-   * Prepare narratives for response by limiting screenshots to prevent token overflow
-   * Only includes screenshots for the last 2 steps to keep within token limits
-   */
-  private prepareNarrativesForResponse(): AgentStepNarrative[] {
-    return this.stepNarratives.map((narrative, index) => {
-      // Only keep screenshots for the last 2 steps
-      const shouldKeepScreenshot = index >= this.stepNarratives.length - 2;
-
-      return {
-        ...narrative,
-        screenshot: shouldKeepScreenshot ? narrative.screenshot : undefined,
-      };
-    });
   }
 
   async executeStep(
@@ -354,25 +338,12 @@ export class AnthropicCUAClient extends AgentClient {
           }
         }
 
-        // After actions are executed, capture narrative with screenshot
-        let stepScreenshot: string | undefined;
-        try {
-          stepScreenshot = await this.captureScreenshot();
-        } catch (e) {
-          logger({
-            category: "agent",
-            message: `Failed to capture post-action screenshot: ${e}`,
-            level: 1,
-          });
-        }
-
-        // Store narrative
+        // Store narrative without screenshot
         this.stepNarratives.push({
           stepIndex: this.currentStepIndex++,
           message: assistantMessage.trim(),
           action: stepActions[0],
           timestamp: Date.now(),
-          screenshot: stepScreenshot,
           executionTimeMs: Date.now() - stepStartTime,
         });
       }
