@@ -190,7 +190,7 @@ export class AnthropicCUAClient extends AgentClient {
         actions,
         message: finalMessage,
         completed,
-        stepNarratives: this.stepNarratives,
+        stepNarratives: this.prepareNarrativesForResponse(),
         usage: {
           input_tokens: totalInputTokens,
           output_tokens: totalOutputTokens,
@@ -211,7 +211,7 @@ export class AnthropicCUAClient extends AgentClient {
         actions,
         message: `Failed to execute task: ${errorMessage}`,
         completed: false,
-        stepNarratives: this.stepNarratives,
+        stepNarratives: this.prepareNarrativesForResponse(),
         usage: {
           input_tokens: totalInputTokens,
           output_tokens: totalOutputTokens,
@@ -219,6 +219,22 @@ export class AnthropicCUAClient extends AgentClient {
         },
       };
     }
+  }
+
+  /**
+   * Prepare narratives for response by limiting screenshots to prevent token overflow
+   * Only includes screenshots for the last 2 steps to keep within token limits
+   */
+  private prepareNarrativesForResponse(): AgentStepNarrative[] {
+    return this.stepNarratives.map((narrative, index) => {
+      // Only keep screenshots for the last 2 steps
+      const shouldKeepScreenshot = index >= this.stepNarratives.length - 2;
+
+      return {
+        ...narrative,
+        screenshot: shouldKeepScreenshot ? narrative.screenshot : undefined,
+      };
+    });
   }
 
   async executeStep(

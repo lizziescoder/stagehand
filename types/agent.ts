@@ -10,7 +10,7 @@ export interface AgentStepNarrative {
   message: string; // Raw agent message for this sub-step
   action: AgentAction;
   timestamp: number;
-  screenshot?: string; // Base64 screenshot after action
+  screenshot?: string; // Base64 screenshot after action. Note: To prevent token overflow, only the last 2 steps include screenshots when returned from agent execution.
   executionTimeMs: number;
 }
 
@@ -26,6 +26,9 @@ export interface AgentResult {
     inference_time_ms: number;
   };
   // NEW: Detailed step-by-step narratives
+  // Note: To prevent token overflow in downstream processing (e.g., sentiment analysis),
+  // only the last 2 step narratives will include screenshots. Earlier steps will have
+  // their screenshot field set to undefined.
   stepNarratives?: AgentStepNarrative[];
 }
 
