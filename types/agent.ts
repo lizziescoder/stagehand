@@ -7,10 +7,10 @@ export interface AgentAction {
 
 export interface AgentStepNarrative {
   stepIndex: number;
-  message: string;        // Raw agent message for this sub-step
-  action: AgentAction;    
+  message: string; // Raw agent message for this sub-step
+  action: AgentAction;
   timestamp: number;
-  screenshot?: string;    // Base64 screenshot after action
+  screenshot?: string; // Base64 screenshot after action
   executionTimeMs: number;
 }
 

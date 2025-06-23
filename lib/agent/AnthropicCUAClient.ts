@@ -94,7 +94,7 @@ export class AnthropicCUAClient extends AgentClient {
    * @implements AgentClient.execute
    */
   async execute(executionOptions: AgentExecutionOptions): Promise<AgentResult> {
-    const { options, logger, retries = 3, initialScreenshot } = executionOptions;
+    const { options, logger, initialScreenshot } = executionOptions;
     const { instruction } = options;
     const maxSteps = options.maxSteps || 10;
 
@@ -236,7 +236,7 @@ export class AnthropicCUAClient extends AgentClient {
     };
   }> {
     const stepStartTime = Date.now();
-    
+
     try {
       // Get response from the model
       const result = await this.getAction(inputItems);
@@ -337,7 +337,7 @@ export class AnthropicCUAClient extends AgentClient {
             });
           }
         }
-        
+
         // After actions are executed, capture narrative with screenshot
         let stepScreenshot: string | undefined;
         try {
@@ -346,7 +346,7 @@ export class AnthropicCUAClient extends AgentClient {
           logger({
             category: "agent",
             message: `Failed to capture post-action screenshot: ${e}`,
-            level: 1
+            level: 1,
           });
         }
 
@@ -357,7 +357,7 @@ export class AnthropicCUAClient extends AgentClient {
           action: stepActions[0],
           timestamp: Date.now(),
           screenshot: stepScreenshot,
-          executionTimeMs: Date.now() - stepStartTime
+          executionTimeMs: Date.now() - stepStartTime,
         });
       }
 
