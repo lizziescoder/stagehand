@@ -10,6 +10,7 @@ import {
   AnthropicContentBlock,
   AnthropicTextBlock,
   AnthropicToolResult,
+  AgentStepNarrative,
 } from "@/types/agent";
 import { AgentClient } from "./AgentClient";
 import { AgentScreenshotProviderError } from "@/types/stagehandErrors";
@@ -30,6 +31,8 @@ export class AnthropicCUAClient extends AgentClient {
   private screenshotProvider?: () => Promise<string>;
   private actionHandler?: (action: AgentAction) => Promise<void>;
   private thinkingBudget: number | null = null;
+  private stepNarratives: AgentStepNarrative[] = [];
+  private currentStepIndex: number = 0;
 
   constructor(
     type: AgentType,
@@ -91,9 +94,19 @@ export class AnthropicCUAClient extends AgentClient {
    * @implements AgentClient.execute
    */
   async execute(executionOptions: AgentExecutionOptions): Promise<AgentResult> {
-    const { options, logger, initialScreenshot } = executionOptions;
+    const { options, logger, retries = 3, initialScreenshot } = executionOptions;
     const { instruction } = options;
     const maxSteps = options.maxSteps || 10;
+
+    // Reset narratives for new execution
+    this.stepNarratives = [];
+    this.currentStepIndex = 0;
+
+    logger({
+      category: "agent",
+      message: `Starting agent task: ${instruction}`,
+      level: 1,
+    });
 
     let currentStep = 0;
     let completed = false;
@@ -177,6 +190,7 @@ export class AnthropicCUAClient extends AgentClient {
         actions,
         message: finalMessage,
         completed,
+        stepNarratives: this.stepNarratives,
         usage: {
           input_tokens: totalInputTokens,
           output_tokens: totalOutputTokens,
@@ -197,6 +211,7 @@ export class AnthropicCUAClient extends AgentClient {
         actions,
         message: `Failed to execute task: ${errorMessage}`,
         completed: false,
+        stepNarratives: this.stepNarratives,
         usage: {
           input_tokens: totalInputTokens,
           output_tokens: totalOutputTokens,
@@ -220,6 +235,8 @@ export class AnthropicCUAClient extends AgentClient {
       inference_time_ms: number;
     };
   }> {
+    const stepStartTime = Date.now();
+    
     try {
       // Get response from the model
       const result = await this.getAction(inputItems);
@@ -239,7 +256,7 @@ export class AnthropicCUAClient extends AgentClient {
       // Extract actions from the content
       const stepActions: AgentAction[] = [];
       const toolUseItems: ToolUseItem[] = [];
-      let message = "";
+      let assistantMessage = "";
 
       // Process content blocks to find tool use items and text content
       for (const block of content) {
@@ -284,7 +301,7 @@ export class AnthropicCUAClient extends AgentClient {
         } else if (block.type === "text") {
           // Safe to cast here since we've verified it's a text block
           const textBlock = block as unknown as AnthropicTextBlock;
-          message += textBlock.text + "\n";
+          assistantMessage += textBlock.text + " ";
 
           logger({
             category: "agent",
@@ -320,10 +337,32 @@ export class AnthropicCUAClient extends AgentClient {
             });
           }
         }
+        
+        // After actions are executed, capture narrative with screenshot
+        let stepScreenshot: string | undefined;
+        try {
+          stepScreenshot = await this.captureScreenshot();
+        } catch (e) {
+          logger({
+            category: "agent",
+            message: `Failed to capture post-action screenshot: ${e}`,
+            level: 1
+          });
+        }
+
+        // Store narrative
+        this.stepNarratives.push({
+          stepIndex: this.currentStepIndex++,
+          message: assistantMessage.trim(),
+          action: stepActions[0],
+          timestamp: Date.now(),
+          screenshot: stepScreenshot,
+          executionTimeMs: Date.now() - stepStartTime
+        });
       }
 
       // Create the assistant response message with all content blocks
-      const assistantMessage: AnthropicMessage = {
+      const assistantResponseMessage: AnthropicMessage = {
         role: "assistant",
         content: content as unknown as AnthropicContentBlock[],
       };
@@ -333,7 +372,7 @@ export class AnthropicCUAClient extends AgentClient {
       const nextInputItems: ResponseInputItem[] = [...inputItems];
 
       // Add the assistant message with tool_use blocks to the history
-      nextInputItems.push(assistantMessage);
+      nextInputItems.push(assistantResponseMessage);
 
       // Generate tool results and add them as a user message
       if (toolUseItems.length > 0) {
@@ -360,7 +399,7 @@ export class AnthropicCUAClient extends AgentClient {
 
       return {
         actions: stepActions,
-        message: message.trim(),
+        message: assistantMessage.trim(),
         completed,
         nextInputItems,
         usage: usage,
