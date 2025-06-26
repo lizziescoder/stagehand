@@ -42,9 +42,7 @@ export class AnthropicCUAClient extends AgentClient {
   ) {
     super(type, modelName, userProvidedInstructions);
 
-    console.log(
-      `[STAGEHAND DEBUG] AnthropicCUAClient constructor called with model: ${modelName}`,
-    );
+
 
     // Process client options
     this.apiKey =
@@ -417,9 +415,7 @@ export class AnthropicCUAClient extends AgentClient {
 
     // If we have an initial screenshot, include it with the instruction
     if (initialScreenshot) {
-      console.log(
-        `[STAGEHAND DEBUG] Including initial screenshot in first message (${initialScreenshot.length} chars)`,
-      );
+  
       messages.push({
         role: "user",
         content: [
@@ -442,9 +438,7 @@ export class AnthropicCUAClient extends AgentClient {
         ],
       });
     } else {
-      console.log(
-        "[STAGEHAND DEBUG] No initial screenshot provided, using text-only message",
-      );
+   
       // Fallback to text-only message
       messages.push({
         role: "user",
@@ -482,9 +476,7 @@ export class AnthropicCUAClient extends AgentClient {
         : undefined;
 
       // Create the request parameters
-      console.log(
-        `[STAGEHAND DEBUG] Creating Anthropic request with model: ${this.modelName}`,
-      );
+ 
       const requestParams: Record<string, unknown> = {
         model: this.modelName,
         max_tokens: 4096,
@@ -519,9 +511,7 @@ export class AnthropicCUAClient extends AgentClient {
             ? firstMessage.content.substring(0, 50)
             : "complex content";
 
-        console.log(
-          `Sending request to Anthropic with ${messages.length} messages and ${messages.length > 0 ? `first message role: ${messages[0].role}, content: ${contentPreview}...` : "no messages"}`,
-        );
+       
 
         // Log if first message contains an image
         if (
@@ -531,9 +521,7 @@ export class AnthropicCUAClient extends AgentClient {
           const hasImage = firstMessage.content.some(
             (block: AnthropicContentBlock) => block.type === "image",
           );
-          console.log(
-            `[STAGEHAND DEBUG] First message contains image: ${hasImage}`,
-          );
+      
         }
       }
 

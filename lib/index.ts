@@ -911,9 +911,7 @@ export class Stagehand {
         }
 
         if (this.usingAPI) {
-          console.log(
-            `[STAGEHAND DEBUG] Agent using API mode with provider: ${options.provider}, model: ${options.model}`,
-          );
+       
           if (!this.apiClient) {
             throw new StagehandNotInitializedError("API client");
           }

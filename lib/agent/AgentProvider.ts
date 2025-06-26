@@ -37,13 +37,7 @@ export class AgentProvider {
     userProvidedInstructions?: string,
   ): AgentClient {
     // Add debugging log for incoming model
-    console.log(
-      `[STAGEHAND DEBUG] AgentProvider.getClient called with model: ${modelName}`,
-    );
-    console.log(
-      `[STAGEHAND DEBUG] Available models:`,
-      Object.keys(modelToAgentProviderMap),
-    );
+
 
     const type = AgentProvider.getAgentProvider(modelName);
     this.logger({
@@ -55,9 +49,7 @@ export class AgentProvider {
     try {
       switch (type) {
         case "openai":
-          console.log(
-            `[STAGEHAND DEBUG] Creating OpenAI client for model: ${modelName}`,
-          );
+      
           return new OpenAICUAClient(
             type,
             modelName,
@@ -65,9 +57,7 @@ export class AgentProvider {
             clientOptions,
           );
         case "anthropic":
-          console.log(
-            `[STAGEHAND DEBUG] Creating Anthropic client for model: ${modelName}`,
-          );
+        
           return new AnthropicCUAClient(
             type,
             modelName,
@@ -101,9 +91,7 @@ export class AgentProvider {
     // First check the exact model name in the map
     if (modelName in modelToAgentProviderMap) {
       const provider = modelToAgentProviderMap[modelName];
-      console.log(
-        `[STAGEHAND DEBUG] Model ${modelName} mapped to provider: ${provider}`,
-      );
+   
       return provider;
     }
 

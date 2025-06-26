@@ -34,11 +34,6 @@ export class StagehandAgentHandler {
     this.logger = logger;
     this.options = options;
 
-    console.log(
-      `[STAGEHAND DEBUG] StagehandAgentHandler constructor called with options:`,
-      options,
-    );
-    console.log(`[STAGEHAND DEBUG] Model name: ${options.modelName}`);
 
     // Initialize the provider
     this.provider = new AgentProvider(logger);
