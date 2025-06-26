@@ -34,12 +34,6 @@ export class StagehandAgentHandler {
     this.logger = logger;
     this.options = options;
 
-    console.log(
-      `[STAGEHAND DEBUG] StagehandAgentHandler constructor called with options:`,
-      options,
-    );
-    console.log(`[STAGEHAND DEBUG] Model name: ${options.modelName}`);
-
     // Initialize the provider
     this.provider = new AgentProvider(logger);
 
@@ -168,24 +162,58 @@ export class StagehandAgentHandler {
       // Continue execution even if cursor injection fails
     }
 
-    // Take initial screenshot if needed
+    // Capture initial screenshot for the agent
+    let initialScreenshot: string | undefined;
+
+    this.logger({
+      category: "agent",
+      message: `Checking autoScreenshot option: ${options.autoScreenshot} (should capture: ${options.autoScreenshot !== false})`,
+      level: 1,
+    });
+
     if (options.autoScreenshot !== false) {
       try {
-        await this.captureAndSendScreenshot();
+        this.logger({
+          category: "agent",
+          message: "Attempting to capture initial screenshot...",
+          level: 1,
+        });
+
+        const screenshot = await this.stagehandPage.page.screenshot({
+          type: "png",
+          fullPage: false,
+        });
+        initialScreenshot = screenshot.toString("base64");
+
+        this.logger({
+          category: "agent",
+          message: `Captured initial screenshot for agent (${initialScreenshot.length} chars)`,
+          level: 1,
+        });
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         this.logger({
           category: "agent",
-          message: `Warning: Failed to take initial screenshot: ${errorMessage}. Continuing with execution.`,
+          message: `Warning: Failed to capture initial screenshot: ${errorMessage}. Agent will request one.`,
           level: 1,
         });
-        // Continue execution even if screenshot fails
+        // Continue without initial screenshot
       }
+    } else {
+      this.logger({
+        category: "agent",
+        message:
+          "Skipping initial screenshot capture (autoScreenshot is false)",
+        level: 1,
+      });
     }
 
-    // Execute the task
-    const result = await this.agent.execute(optionsOrInstruction);
+    // Execute the task with initial screenshot
+    const result = await this.agent.execute(
+      optionsOrInstruction,
+      initialScreenshot,
+    );
     if (result.usage) {
       this.stagehand.updateMetrics(
         StagehandFunctionName.AGENT,
@@ -330,13 +358,83 @@ export class StagehandAgentHandler {
 
         case "scroll": {
           const { x, y, scroll_x = 0, scroll_y = 0 } = action;
+
+          // Update cursor position for visual feedback
+          await this.updateCursorPosition(x as number, y as number);
+
           // First move to the position
           await this.stagehandPage.page.mouse.move(x as number, y as number);
-          // Then scroll
+
+          // Then scroll the appropriate element
           await this.stagehandPage.page.evaluate(
-            ({ scrollX, scrollY }) => window.scrollBy(scrollX, scrollY),
-            { scrollX: scroll_x as number, scrollY: scroll_y as number },
+            ({ x, y, scrollX, scrollY }) => {
+              // Find the element at the given coordinates
+              const elementAtPoint = document.elementFromPoint(x, y);
+
+              if (!elementAtPoint) {
+                // If no element found, scroll the window
+                window.scrollBy(scrollX, scrollY);
+                return;
+              }
+
+              // Find the nearest scrollable parent (including the element itself)
+              let scrollableElement: Element | null = elementAtPoint;
+              while (
+                scrollableElement &&
+                scrollableElement !== document.documentElement
+              ) {
+                const style = window.getComputedStyle(scrollableElement);
+                const overflowY = style.overflowY;
+                const overflowX = style.overflowX;
+
+                // Check if this element is scrollable
+                if (
+                  overflowY === "auto" ||
+                  overflowY === "scroll" ||
+                  overflowY === "overlay" ||
+                  overflowX === "auto" ||
+                  overflowX === "scroll" ||
+                  overflowX === "overlay"
+                ) {
+                  const hasVerticalScroll =
+                    scrollableElement.scrollHeight >
+                    scrollableElement.clientHeight;
+                  const hasHorizontalScroll =
+                    scrollableElement.scrollWidth >
+                    scrollableElement.clientWidth;
+
+                  if (
+                    (scrollY !== 0 && hasVerticalScroll) ||
+                    (scrollX !== 0 && hasHorizontalScroll)
+                  ) {
+                    // This element is scrollable in the desired direction
+                    scrollableElement.scrollBy({
+                      left: scrollX,
+                      top: scrollY,
+                      behavior: "smooth",
+                    });
+                    return;
+                  }
+                }
+
+                // Move to parent element
+                scrollableElement = scrollableElement.parentElement;
+              }
+
+              // If no scrollable element found, scroll the window
+              window.scrollBy(scrollX, scrollY);
+            },
+            {
+              x: x as number,
+              y: y as number,
+              scrollX: scroll_x as number,
+              scrollY: scroll_y as number,
+            },
           );
+
+          // Small delay to allow scroll animation
+          await new Promise((resolve) => setTimeout(resolve, 300));
+
           return { success: true };
         }
 
@@ -423,9 +521,23 @@ export class StagehandAgentHandler {
             await this.stagehandPage.page.keyboard.press("Escape");
           } else if (text === "Backspace") {
             await this.stagehandPage.page.keyboard.press("Backspace");
-          } else {
-            // For other keys, try to press directly
-            await this.stagehandPage.page.keyboard.press(text as string);
+          } else if (typeof text === "string") {
+            // Check if it's a key combination (contains "+")
+            if (text.includes("+")) {
+              // Split the combination and convert each part
+              const parts = text.split("+");
+              const convertedParts = parts.map((part: string) =>
+                this.convertKeyName(part.trim()),
+              );
+              const convertedCombination = convertedParts.join("+");
+              await this.stagehandPage.page.keyboard.press(
+                convertedCombination,
+              );
+            } else {
+              // For single keys, convert and press
+              const convertedKey = this.convertKeyName(text);
+              await this.stagehandPage.page.keyboard.press(convertedKey);
+            }
           }
           return { success: true };
         }

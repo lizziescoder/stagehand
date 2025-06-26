@@ -10,6 +10,7 @@ import {
   AnthropicContentBlock,
   AnthropicTextBlock,
   AnthropicToolResult,
+  AgentStepNarrative,
 } from "@/types/agent";
 import { AgentClient } from "./AgentClient";
 import { AgentScreenshotProviderError } from "@/types/stagehandErrors";
@@ -30,6 +31,8 @@ export class AnthropicCUAClient extends AgentClient {
   private screenshotProvider?: () => Promise<string>;
   private actionHandler?: (action: AgentAction) => Promise<void>;
   private thinkingBudget: number | null = null;
+  private stepNarratives: AgentStepNarrative[] = [];
+  private currentStepIndex: number = 0;
 
   constructor(
     type: AgentType,
@@ -38,10 +41,6 @@ export class AnthropicCUAClient extends AgentClient {
     clientOptions?: Record<string, unknown>,
   ) {
     super(type, modelName, userProvidedInstructions);
-
-    console.log(
-      `[STAGEHAND DEBUG] AnthropicCUAClient constructor called with model: ${modelName}`,
-    );
 
     // Process client options
     this.apiKey =
@@ -91,9 +90,19 @@ export class AnthropicCUAClient extends AgentClient {
    * @implements AgentClient.execute
    */
   async execute(executionOptions: AgentExecutionOptions): Promise<AgentResult> {
-    const { options, logger } = executionOptions;
+    const { options, logger, initialScreenshot } = executionOptions;
     const { instruction } = options;
     const maxSteps = options.maxSteps || 10;
+
+    // Reset narratives for new execution
+    this.stepNarratives = [];
+    this.currentStepIndex = 0;
+
+    logger({
+      category: "agent",
+      message: `Starting agent task: ${instruction}`,
+      level: 1,
+    });
 
     let currentStep = 0;
     let completed = false;
@@ -101,13 +110,21 @@ export class AnthropicCUAClient extends AgentClient {
     const messageList: string[] = [];
     let finalMessage = "";
 
-    // Start with the initial instruction
-    let inputItems: ResponseInputItem[] =
-      this.createInitialInputItems(instruction);
+    // Start with the initial instruction and optional screenshot
+    let inputItems: ResponseInputItem[] = this.createInitialInputItems(
+      instruction,
+      initialScreenshot,
+    );
 
     logger({
       category: "agent",
       message: `Starting Anthropic agent execution with instruction: ${instruction}`,
+      level: 1,
+    });
+
+    logger({
+      category: "agent",
+      message: `Initial screenshot provided: ${initialScreenshot ? `Yes (${initialScreenshot.length} chars)` : "No"}`,
       level: 1,
     });
 
@@ -169,6 +186,7 @@ export class AnthropicCUAClient extends AgentClient {
         actions,
         message: finalMessage,
         completed,
+        stepNarratives: this.stepNarratives,
         usage: {
           input_tokens: totalInputTokens,
           output_tokens: totalOutputTokens,
@@ -189,6 +207,7 @@ export class AnthropicCUAClient extends AgentClient {
         actions,
         message: `Failed to execute task: ${errorMessage}`,
         completed: false,
+        stepNarratives: this.stepNarratives,
         usage: {
           input_tokens: totalInputTokens,
           output_tokens: totalOutputTokens,
@@ -212,6 +231,8 @@ export class AnthropicCUAClient extends AgentClient {
       inference_time_ms: number;
     };
   }> {
+    const stepStartTime = Date.now();
+
     try {
       // Get response from the model
       const result = await this.getAction(inputItems);
@@ -231,7 +252,7 @@ export class AnthropicCUAClient extends AgentClient {
       // Extract actions from the content
       const stepActions: AgentAction[] = [];
       const toolUseItems: ToolUseItem[] = [];
-      let message = "";
+      let assistantMessage = "";
 
       // Process content blocks to find tool use items and text content
       for (const block of content) {
@@ -276,7 +297,7 @@ export class AnthropicCUAClient extends AgentClient {
         } else if (block.type === "text") {
           // Safe to cast here since we've verified it's a text block
           const textBlock = block as unknown as AnthropicTextBlock;
-          message += textBlock.text + "\n";
+          assistantMessage += textBlock.text + " ";
 
           logger({
             category: "agent",
@@ -312,10 +333,19 @@ export class AnthropicCUAClient extends AgentClient {
             });
           }
         }
+
+        // Store narrative without screenshot
+        this.stepNarratives.push({
+          stepIndex: this.currentStepIndex++,
+          message: assistantMessage.trim(),
+          action: stepActions[0],
+          timestamp: Date.now(),
+          executionTimeMs: Date.now() - stepStartTime,
+        });
       }
 
       // Create the assistant response message with all content blocks
-      const assistantMessage: AnthropicMessage = {
+      const assistantResponseMessage: AnthropicMessage = {
         role: "assistant",
         content: content as unknown as AnthropicContentBlock[],
       };
@@ -325,7 +355,7 @@ export class AnthropicCUAClient extends AgentClient {
       const nextInputItems: ResponseInputItem[] = [...inputItems];
 
       // Add the assistant message with tool_use blocks to the history
-      nextInputItems.push(assistantMessage);
+      nextInputItems.push(assistantResponseMessage);
 
       // Generate tool results and add them as a user message
       if (toolUseItems.length > 0) {
@@ -352,7 +382,7 @@ export class AnthropicCUAClient extends AgentClient {
 
       return {
         actions: stepActions,
-        message: message.trim(),
+        message: assistantMessage.trim(),
         completed,
         nextInputItems,
         usage: usage,
@@ -370,18 +400,49 @@ export class AnthropicCUAClient extends AgentClient {
     }
   }
 
-  private createInitialInputItems(instruction: string): AnthropicMessage[] {
-    // For the initial request, we use a simple array with the user's instruction
-    return [
+  private createInitialInputItems(
+    instruction: string,
+    initialScreenshot?: string,
+  ): AnthropicMessage[] {
+    const messages: AnthropicMessage[] = [
       {
         role: "system",
         content: this.userProvidedInstructions,
       },
-      {
+    ];
+
+    // If we have an initial screenshot, include it with the instruction
+    if (initialScreenshot) {
+      messages.push({
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: instruction,
+          },
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: "image/png",
+              data: initialScreenshot.replace(/^data:image\/png;base64,/, ""),
+            },
+          },
+          {
+            type: "text",
+            text: `Current URL: ${this.currentUrl || "unknown"}`,
+          },
+        ],
+      });
+    } else {
+      // Fallback to text-only message
+      messages.push({
         role: "user",
         content: instruction,
-      },
-    ];
+      });
+    }
+
+    return messages;
   }
 
   async getAction(inputItems: ResponseInputItem[]): Promise<{
@@ -411,9 +472,7 @@ export class AnthropicCUAClient extends AgentClient {
         : undefined;
 
       // Create the request parameters
-      console.log(
-        `[STAGEHAND DEBUG] Creating Anthropic request with model: ${this.modelName}`,
-      );
+
       const requestParams: Record<string, unknown> = {
         model: this.modelName,
         max_tokens: 4096,
@@ -438,19 +497,6 @@ export class AnthropicCUAClient extends AgentClient {
       // Add thinking parameter if available
       if (thinking) {
         requestParams.thinking = thinking;
-      }
-
-      // Log the request
-      if (messages.length > 0) {
-        const firstMessage = messages[0];
-        const contentPreview =
-          typeof firstMessage.content === "string"
-            ? firstMessage.content.substring(0, 50)
-            : "complex content";
-
-        console.log(
-          `Sending request to Anthropic with ${messages.length} messages and ${messages.length > 0 ? `first message role: ${messages[0].role}, content: ${contentPreview}...` : "no messages"}`,
-        );
       }
 
       const startTime = Date.now();

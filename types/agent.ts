@@ -5,6 +5,14 @@ export interface AgentAction {
   [key: string]: unknown;
 }
 
+export interface AgentStepNarrative {
+  stepIndex: number;
+  message: string; // Raw agent message for this sub-step
+  action: AgentAction;
+  timestamp: number;
+  executionTimeMs: number;
+}
+
 export interface AgentResult {
   success: boolean;
   message: string;
@@ -16,6 +24,8 @@ export interface AgentResult {
     output_tokens: number;
     inference_time_ms: number;
   };
+  // Detailed step-by-step narratives
+  stepNarratives?: AgentStepNarrative[];
 }
 
 export interface AgentOptions {
@@ -45,6 +55,7 @@ export interface AgentExecutionOptions {
   options: AgentExecuteOptions;
   logger: (message: LogLine) => void;
   retries?: number;
+  initialScreenshot?: string; // Base64 encoded screenshot for initial request
 }
 
 export interface AgentHandlerOptions {
