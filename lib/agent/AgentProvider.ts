@@ -38,7 +38,6 @@ export class AgentProvider {
   ): AgentClient {
     // Add debugging log for incoming model
 
-
     const type = AgentProvider.getAgentProvider(modelName);
     this.logger({
       category: "agent",
@@ -49,7 +48,6 @@ export class AgentProvider {
     try {
       switch (type) {
         case "openai":
-      
           return new OpenAICUAClient(
             type,
             modelName,
@@ -57,7 +55,6 @@ export class AgentProvider {
             clientOptions,
           );
         case "anthropic":
-        
           return new AnthropicCUAClient(
             type,
             modelName,
@@ -91,7 +88,7 @@ export class AgentProvider {
     // First check the exact model name in the map
     if (modelName in modelToAgentProviderMap) {
       const provider = modelToAgentProviderMap[modelName];
-   
+
       return provider;
     }
 

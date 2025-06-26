@@ -42,8 +42,6 @@ export class AnthropicCUAClient extends AgentClient {
   ) {
     super(type, modelName, userProvidedInstructions);
 
-
-
     // Process client options
     this.apiKey =
       (clientOptions?.apiKey as string) || process.env.ANTHROPIC_API_KEY || "";
@@ -415,7 +413,6 @@ export class AnthropicCUAClient extends AgentClient {
 
     // If we have an initial screenshot, include it with the instruction
     if (initialScreenshot) {
-  
       messages.push({
         role: "user",
         content: [
@@ -438,7 +435,6 @@ export class AnthropicCUAClient extends AgentClient {
         ],
       });
     } else {
-   
       // Fallback to text-only message
       messages.push({
         role: "user",
@@ -476,7 +472,7 @@ export class AnthropicCUAClient extends AgentClient {
         : undefined;
 
       // Create the request parameters
- 
+
       const requestParams: Record<string, unknown> = {
         model: this.modelName,
         max_tokens: 4096,
@@ -501,28 +497,6 @@ export class AnthropicCUAClient extends AgentClient {
       // Add thinking parameter if available
       if (thinking) {
         requestParams.thinking = thinking;
-      }
-
-      // Log the request
-      if (messages.length > 0) {
-        const firstMessage = messages[0];
-        const contentPreview =
-          typeof firstMessage.content === "string"
-            ? firstMessage.content.substring(0, 50)
-            : "complex content";
-
-       
-
-        // Log if first message contains an image
-        if (
-          typeof firstMessage.content !== "string" &&
-          Array.isArray(firstMessage.content)
-        ) {
-          const hasImage = firstMessage.content.some(
-            (block: AnthropicContentBlock) => block.type === "image",
-          );
-      
-        }
       }
 
       const startTime = Date.now();

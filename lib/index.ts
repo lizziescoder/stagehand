@@ -911,7 +911,6 @@ export class Stagehand {
         }
 
         if (this.usingAPI) {
-       
           if (!this.apiClient) {
             throw new StagehandNotInitializedError("API client");
           }

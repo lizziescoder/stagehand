@@ -34,7 +34,6 @@ export class StagehandAgentHandler {
     this.logger = logger;
     this.options = options;
 
-
     // Initialize the provider
     this.provider = new AgentProvider(logger);
 
