@@ -489,9 +489,16 @@ export class AnthropicCUAClient extends AgentClient {
         betas: ["computer-use-2025-01-24"],
       };
 
-      // Add system parameter if provided
+      // Add system parameter with caching if provided
       if (this.userProvidedInstructions) {
-        requestParams.system = this.userProvidedInstructions;
+        // Make system cacheable by structuring it properly for prompt caching
+        requestParams.system = [
+          {
+            type: "text",
+            text: this.userProvidedInstructions,
+            cache_control: { type: "ephemeral" }
+          }
+        ];
       }
 
       // Add thinking parameter if available
@@ -500,9 +507,15 @@ export class AnthropicCUAClient extends AgentClient {
       }
 
       const startTime = Date.now();
-      // Create the message using the Anthropic Messages API
-      // @ts-expect-error - The Anthropic SDK types are stricter than what we need
-      const response = await this.client.beta.messages.create(requestParams);
+      // Create the message using the Anthropic Messages API with caching headers
+      const response = await this.client.beta.messages.create(
+        requestParams as any,
+        {
+          headers: {
+            'anthropic-beta': 'prompt-caching-2024-07-31'
+          }
+        }
+      );
       const endTime = Date.now();
       const elapsedMs = endTime - startTime;
       const usage = {
@@ -510,6 +523,20 @@ export class AnthropicCUAClient extends AgentClient {
         output_tokens: response.usage.output_tokens,
         inference_time_ms: elapsedMs,
       };
+
+      // Log cache metrics if available
+      if (response.usage) {
+        const cacheMetrics = {
+          cache_creation_tokens: (response.usage as any).cache_creation_input_tokens || 0,
+          cache_read_tokens: (response.usage as any).cache_read_input_tokens || 0,
+          regular_input_tokens: response.usage.input_tokens || 0,
+          model: this.modelName
+        };
+        
+        if (cacheMetrics.cache_creation_tokens > 0 || cacheMetrics.cache_read_tokens > 0) {
+          console.log('Stagehand agent cache metrics:', cacheMetrics);
+        }
+      }
 
       // Store the message ID for future use
       this.lastMessageId = response.id;
