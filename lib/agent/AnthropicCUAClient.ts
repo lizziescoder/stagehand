@@ -539,14 +539,10 @@ export class AnthropicCUAClient extends AgentClient {
       }
 
       const startTime = Date.now();
-      // Create the message using the Anthropic Messages API with caching headers
+      // Create the message using the Anthropic Messages API
+      // Prompt caching is now generally available - no special headers needed
       const response = (await this.client.beta.messages.create(
         requestParams as Parameters<typeof this.client.beta.messages.create>[0],
-        {
-          headers: {
-            "anthropic-beta": "prompt-caching-2024-07-31",
-          },
-        },
       )) as Anthropic.Beta.BetaMessage;
       const endTime = Date.now();
       const elapsedMs = endTime - startTime;
