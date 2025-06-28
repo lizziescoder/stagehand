@@ -17,6 +17,38 @@ import { AgentScreenshotProviderError } from "@/types/stagehandErrors";
 
 export type ResponseInputItem = AnthropicMessage | AnthropicToolResult;
 
+// Type for usage with cache metrics
+interface UsageWithCache {
+  input_tokens: number;
+  output_tokens: number;
+  cache_creation_input_tokens?: number;
+  cache_read_input_tokens?: number;
+}
+
+// Type for request params
+interface AnthropicRequestParams {
+  model: string;
+  max_tokens: number;
+  messages: AnthropicMessage[];
+  tools: Array<{
+    type: string;
+    name: string;
+    display_width_px: number;
+    display_height_px: number;
+    display_number: number;
+  }>;
+  betas: string[];
+  system?: Array<{
+    type: string;
+    text: string;
+    cache_control: { type: string };
+  }>;
+  thinking?: {
+    type: "enabled";
+    budget_tokens: number;
+  };
+}
+
 /**
  * Client for Anthropic's Computer Use API
  * This implementation uses the official Anthropic Messages API for Computer Use
@@ -473,7 +505,7 @@ export class AnthropicCUAClient extends AgentClient {
 
       // Create the request parameters
 
-      const requestParams: Record<string, unknown> = {
+      const requestParams: AnthropicRequestParams = {
         model: this.modelName,
         max_tokens: 4096,
         messages: messages,
@@ -496,8 +528,8 @@ export class AnthropicCUAClient extends AgentClient {
           {
             type: "text",
             text: this.userProvidedInstructions,
-            cache_control: { type: "ephemeral" }
-          }
+            cache_control: { type: "ephemeral" },
+          },
         ];
       }
 
@@ -508,14 +540,14 @@ export class AnthropicCUAClient extends AgentClient {
 
       const startTime = Date.now();
       // Create the message using the Anthropic Messages API with caching headers
-      const response = await this.client.beta.messages.create(
-        requestParams as any,
+      const response = (await this.client.beta.messages.create(
+        requestParams as Parameters<typeof this.client.beta.messages.create>[0],
         {
           headers: {
-            'anthropic-beta': 'prompt-caching-2024-07-31'
-          }
-        }
-      );
+            "anthropic-beta": "prompt-caching-2024-07-31",
+          },
+        },
+      )) as Anthropic.Beta.BetaMessage;
       const endTime = Date.now();
       const elapsedMs = endTime - startTime;
       const usage = {
@@ -526,15 +558,20 @@ export class AnthropicCUAClient extends AgentClient {
 
       // Log cache metrics if available
       if (response.usage) {
+        const usageWithCache = response.usage as UsageWithCache;
         const cacheMetrics = {
-          cache_creation_tokens: (response.usage as any).cache_creation_input_tokens || 0,
-          cache_read_tokens: (response.usage as any).cache_read_input_tokens || 0,
+          cache_creation_tokens:
+            usageWithCache.cache_creation_input_tokens || 0,
+          cache_read_tokens: usageWithCache.cache_read_input_tokens || 0,
           regular_input_tokens: response.usage.input_tokens || 0,
-          model: this.modelName
+          model: this.modelName,
         };
-        
-        if (cacheMetrics.cache_creation_tokens > 0 || cacheMetrics.cache_read_tokens > 0) {
-          console.log('Stagehand agent cache metrics:', cacheMetrics);
+
+        if (
+          cacheMetrics.cache_creation_tokens > 0 ||
+          cacheMetrics.cache_read_tokens > 0
+        ) {
+          console.log("Stagehand agent cache metrics:", cacheMetrics);
         }
       }
 
