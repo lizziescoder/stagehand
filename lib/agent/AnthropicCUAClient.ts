@@ -65,6 +65,7 @@ export class AnthropicCUAClient extends AgentClient {
   private thinkingBudget: number | null = null;
   private stepNarratives: AgentStepNarrative[] = [];
   private currentStepIndex: number = 0;
+  private hasInitialScreenshot: boolean = false;
 
   constructor(
     type: AgentType,
@@ -129,6 +130,7 @@ export class AnthropicCUAClient extends AgentClient {
     // Reset narratives for new execution
     this.stepNarratives = [];
     this.currentStepIndex = 0;
+    this.hasInitialScreenshot = !!initialScreenshot;
 
     logger({
       category: "agent",
@@ -436,12 +438,20 @@ export class AnthropicCUAClient extends AgentClient {
     instruction: string,
     initialScreenshot?: string,
   ): AnthropicMessage[] {
-    const messages: AnthropicMessage[] = [
-      {
-        role: "system",
-        content: this.userProvidedInstructions,
-      },
-    ];
+    const messages: AnthropicMessage[] = [];
+
+    // Modify system message to include initial screenshot context
+    let systemContent = this.userProvidedInstructions || "";
+
+    if (initialScreenshot) {
+      systemContent +=
+        "\n\nIMPORTANT: An initial screenshot of the current page has been provided with your first message. You do NOT need to take a screenshot action before proceeding with the task. The screenshot shows the current state of the page.";
+    }
+
+    messages.push({
+      role: "system",
+      content: systemContent,
+    });
 
     // If we have an initial screenshot, include it with the instruction
     if (initialScreenshot) {
@@ -451,6 +461,10 @@ export class AnthropicCUAClient extends AgentClient {
           {
             type: "text",
             text: instruction,
+          },
+          {
+            type: "text",
+            text: "Here is the current screenshot of the page:",
           },
           {
             type: "image",
@@ -522,12 +536,22 @@ export class AnthropicCUAClient extends AgentClient {
       };
 
       // Add system parameter with caching if provided
-      if (this.userProvidedInstructions) {
+      if (this.userProvidedInstructions || this.hasInitialScreenshot) {
+        // Build system content with initial screenshot context if needed
+        let systemContent = this.userProvidedInstructions || "";
+
+        if (this.hasInitialScreenshot) {
+          systemContent +=
+            "\n\nIMPORTANT: An initial screenshot of the current page has been provided with your first message. You do NOT need to take a screenshot action before proceeding with the task. The screenshot shows the current state of the page.";
+          // Clear the flag after first use to avoid adding this message in subsequent calls
+          this.hasInitialScreenshot = false;
+        }
+
         // Make system cacheable by structuring it properly for prompt caching
         requestParams.system = [
           {
             type: "text",
-            text: this.userProvidedInstructions,
+            text: systemContent,
             cache_control: { type: "ephemeral" },
           },
         ];
