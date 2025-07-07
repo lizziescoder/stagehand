@@ -18,9 +18,7 @@ import { AgentScreenshotProviderError } from "@/types/stagehandErrors";
 export type ResponseInputItem = AnthropicMessage | AnthropicToolResult;
 
 // Type for usage with cache metrics
-interface UsageWithCache {
-  input_tokens: number;
-  output_tokens: number;
+interface UsageWithCache extends Record<string, any> {
   cache_creation_input_tokens?: number;
   cache_read_input_tokens?: number;
 }
@@ -48,6 +46,35 @@ interface AnthropicRequestParams {
     budget_tokens: number;
   };
 }
+
+/**
+ * Check if an error is a rate limit error from Anthropic
+ */
+const isRateLimitError = (error: any): boolean => {
+  // Check for Anthropic's rate_limit_error type
+  if (error?.error?.type === 'rate_limit_error') return true;
+  
+  // Check HTTP status code  
+  if (error?.status === 429 || error?.response?.status === 429) return true;
+  
+  // Check if the error message contains rate limit info
+  if (error?.message && typeof error.message === 'string') {
+    return error.message.includes('rate_limit_error') || error.message.includes('429');
+  }
+  
+  return false;
+};
+
+/**
+ * Extract retry-after header from various error structures
+ */
+const getRetryAfter = (error: any): number | null => {
+  const retryAfter = error?.headers?.['retry-after'] || 
+                    error?.response?.headers?.['retry-after'] ||
+                    error?.response?.headers?.get?.('retry-after');
+  
+  return retryAfter ? parseInt(retryAfter) : null;
+};
 
 /**
  * Client for Anthropic's Computer Use API
@@ -562,49 +589,96 @@ export class AnthropicCUAClient extends AgentClient {
         requestParams.thinking = thinking;
       }
 
-      const startTime = Date.now();
-      // Create the message using the Anthropic Messages API
-      // Prompt caching is now generally available - no special headers needed
-      const response = (await this.client.beta.messages.create(
-        requestParams as Parameters<typeof this.client.beta.messages.create>[0],
-      )) as Anthropic.Beta.BetaMessage;
-      const endTime = Date.now();
-      const elapsedMs = endTime - startTime;
-      const usage = {
-        input_tokens: response.usage.input_tokens,
-        output_tokens: response.usage.output_tokens,
-        inference_time_ms: elapsedMs,
-      };
+      // Retry logic for API calls
+      const maxRetries = 8;
+      let lastError: any = null;
+      let delay = 1000; // Initial delay of 1 second
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const startTime = Date.now();
+          // Create the message using the Anthropic Messages API
+          // Prompt caching is now generally available - no special headers needed
+          const response = (await this.client.beta.messages.create(
+            requestParams as Parameters<typeof this.client.beta.messages.create>[0],
+          )) as Anthropic.Beta.BetaMessage;
+          const endTime = Date.now();
+          const elapsedMs = endTime - startTime;
+          const usage = {
+            input_tokens: response.usage.input_tokens,
+            output_tokens: response.usage.output_tokens,
+            inference_time_ms: elapsedMs,
+          };
 
-      // Log cache metrics if available
-      if (response.usage) {
-        const usageWithCache = response.usage as UsageWithCache;
-        const cacheMetrics = {
-          cache_creation_tokens:
-            usageWithCache.cache_creation_input_tokens || 0,
-          cache_read_tokens: usageWithCache.cache_read_input_tokens || 0,
-          regular_input_tokens: response.usage.input_tokens || 0,
-          model: this.modelName,
-        };
+          // Log cache metrics if available
+          if (response.usage) {
+            const usageWithCache = response.usage as UsageWithCache;
+            const cacheMetrics = {
+              cache_creation_tokens:
+                usageWithCache.cache_creation_input_tokens || 0,
+              cache_read_tokens: usageWithCache.cache_read_input_tokens || 0,
+              regular_input_tokens: response.usage.input_tokens || 0,
+              model: this.modelName,
+            };
 
-        if (
-          cacheMetrics.cache_creation_tokens > 0 ||
-          cacheMetrics.cache_read_tokens > 0
-        ) {
-          console.log("Stagehand agent cache metrics:", cacheMetrics);
+            if (
+              cacheMetrics.cache_creation_tokens > 0 ||
+              cacheMetrics.cache_read_tokens > 0
+            ) {
+              console.log("Stagehand agent cache metrics:", cacheMetrics);
+            }
+          }
+
+          // Store the message ID for future use
+          this.lastMessageId = response.id;
+
+          // Return the content and message ID
+          return {
+            // Cast the response content to our internal type
+            content: response.content as unknown as AnthropicContentBlock[],
+            id: response.id,
+            usage,
+          };
+        } catch (error: any) {
+          lastError = error;
+          
+          // Check if it's a rate limit error
+          const isRateLimit = isRateLimitError(error);
+          
+          if (isRateLimit) {
+            // Extract retry-after header if available
+            const retryAfter = getRetryAfter(error);
+            
+            if (retryAfter) {
+              delay = retryAfter * 1000;
+              console.log(`[AnthropicCUA] Rate limit hit, retry-after: ${retryAfter}s, attempt: ${attempt}/${maxRetries}`);
+            } else {
+              // Exponential backoff with jitter
+              const jitter = Math.random() * 1000;
+              delay = Math.min(delay * 2 + jitter, 60000); // Max 60s
+              console.log(`[AnthropicCUA] Rate limit hit, using exponential backoff: ${delay}ms, attempt: ${attempt}/${maxRetries}`);
+            }
+          } else {
+            // For non-rate limit errors, use standard backoff
+            delay = Math.min(delay * 2, 10000); // Max 10s for non-rate limits
+            console.error(`[AnthropicCUA] API error (attempt ${attempt}/${maxRetries}):`, error?.message || error);
+          }
+          
+          // Don't retry if we've exceeded attempts (unless it's a rate limit)
+          if (!isRateLimit && attempt >= 3) {
+            console.error("Error getting action from Anthropic:", error);
+            throw error;
+          }
+          
+          if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
         }
       }
-
-      // Store the message ID for future use
-      this.lastMessageId = response.id;
-
-      // Return the content and message ID
-      return {
-        // Cast the response content to our internal type
-        content: response.content as unknown as AnthropicContentBlock[],
-        id: response.id,
-        usage,
-      };
+      
+      // If we get here, we've exhausted all retries
+      console.error("Error getting action from Anthropic after all retries:", lastError);
+      throw lastError;
     } catch (error) {
       console.error("Error getting action from Anthropic:", error);
       throw error;

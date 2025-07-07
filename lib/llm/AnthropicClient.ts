@@ -16,6 +16,35 @@ import {
 } from "./LLMClient";
 import { CreateChatCompletionResponseError } from "@/types/stagehandErrors";
 
+/**
+ * Check if an error is a rate limit error from Anthropic
+ */
+const isRateLimitError = (error: any): boolean => {
+  // Check for Anthropic's rate_limit_error type
+  if (error?.error?.type === 'rate_limit_error') return true;
+  
+  // Check HTTP status code
+  if (error?.status === 429 || error?.response?.status === 429) return true;
+  
+  // Check if the error message contains rate limit info
+  if (error?.message && typeof error.message === 'string') {
+    return error.message.includes('rate_limit_error') || error.message.includes('429');
+  }
+  
+  return false;
+};
+
+/**
+ * Extract retry-after header from various error structures
+ */
+const getRetryAfter = (error: any): number | null => {
+  const retryAfter = error?.headers?.['retry-after'] || 
+                    error?.response?.headers?.['retry-after'] ||
+                    error?.response?.headers?.get?.('retry-after');
+  
+  return retryAfter ? parseInt(retryAfter) : null;
+};
+
 export class AnthropicClient extends LLMClient {
   public type = "anthropic" as const;
   private client: Anthropic;
@@ -227,151 +256,224 @@ export class AnthropicClient extends LLMClient {
       anthropicTools.push(toolDefinition);
     }
 
-    const response = await this.client.messages.create({
-      model: this.modelName,
-      max_tokens: options.maxTokens || 8192,
-      messages: formattedMessages,
-      tools: anthropicTools,
-      system: systemMessage
-        ? (systemMessage.content as string | TextBlockParam[]) // we can cast because we already filtered out image content
-        : undefined,
-      temperature: options.temperature,
-    });
+    // Retry logic for API calls
+    const maxRetries = 8;
+    let lastError: any = null;
+    let delay = 1000; // Initial delay of 1 second
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await this.client.messages.create({
+          model: this.modelName,
+          max_tokens: options.maxTokens || 8192,
+          messages: formattedMessages,
+          tools: anthropicTools,
+          system: systemMessage
+            ? (systemMessage.content as string | TextBlockParam[]) // we can cast because we already filtered out image content
+            : undefined,
+          temperature: options.temperature,
+        });
 
-    logger({
-      category: "anthropic",
-      message: "response",
-      level: 2,
-      auxiliary: {
-        response: {
-          value: JSON.stringify(response),
-          type: "object",
-        },
-        requestId: {
-          value: options.requestId,
-          type: "string",
-        },
-      },
-    });
-
-    // We'll compute usage data from the response
-    const usageData = {
-      prompt_tokens: response.usage.input_tokens,
-      completion_tokens: response.usage.output_tokens,
-      total_tokens: response.usage.input_tokens + response.usage.output_tokens,
-    };
-
-    const transformedResponse: LLMResponse = {
-      id: response.id,
-      object: "chat.completion",
-      created: Date.now(),
-      model: response.model,
-      choices: [
-        {
-          index: 0,
-          message: {
-            role: "assistant",
-            content:
-              response.content.find((c) => c.type === "text")?.text || null,
-            tool_calls: response.content
-              .filter((c) => c.type === "tool_use")
-              .map((toolUse) => ({
-                id: toolUse.id,
-                type: "function",
-                function: {
-                  name: toolUse.name,
-                  arguments: JSON.stringify(toolUse.input),
-                },
-              })),
-          },
-          finish_reason: response.stop_reason,
-        },
-      ],
-      usage: usageData,
-    };
-
-    logger({
-      category: "anthropic",
-      message: "transformed response",
-      level: 2,
-      auxiliary: {
-        transformedResponse: {
-          value: JSON.stringify(transformedResponse),
-          type: "object",
-        },
-        requestId: {
-          value: options.requestId,
-          type: "string",
-        },
-      },
-    });
-
-    if (options.response_model) {
-      const toolUse = response.content.find((c) => c.type === "tool_use");
-      if (toolUse && "input" in toolUse) {
-        const result = toolUse.input;
-
-        const finalParsedResponse = {
-          data: result,
-          usage: usageData,
-        } as unknown as T;
-
-        if (this.enableCaching) {
-          this.cache.set(cacheOptions, finalParsedResponse, options.requestId);
-        }
-
-        return finalParsedResponse;
-      } else {
-        if (!retries || retries < 5) {
-          return this.createChatCompletion({
-            options,
-            logger,
-            retries: (retries ?? 0) + 1,
-          });
-        }
         logger({
           category: "anthropic",
-          message: "error creating chat completion",
-          level: 0,
+          message: "response",
+          level: 2,
           auxiliary: {
+            response: {
+              value: JSON.stringify(response),
+              type: "object",
+            },
             requestId: {
               value: options.requestId,
               type: "string",
             },
           },
         });
-        throw new CreateChatCompletionResponseError(
-          "No tool use with input in response",
-        );
+
+        // We'll compute usage data from the response
+        const usageData = {
+          prompt_tokens: response.usage.input_tokens,
+          completion_tokens: response.usage.output_tokens,
+          total_tokens: response.usage.input_tokens + response.usage.output_tokens,
+        };
+
+        const transformedResponse: LLMResponse = {
+          id: response.id,
+          object: "chat.completion",
+          created: Date.now(),
+          model: response.model,
+          choices: [
+            {
+              index: 0,
+              message: {
+                role: "assistant",
+                content:
+                  response.content.find((c) => c.type === "text")?.text || null,
+                tool_calls: response.content
+                  .filter((c) => c.type === "tool_use")
+                  .map((toolUse) => ({
+                    id: toolUse.id,
+                    type: "function",
+                    function: {
+                      name: toolUse.name,
+                      arguments: JSON.stringify(toolUse.input),
+                    },
+                  })),
+              },
+              finish_reason: response.stop_reason,
+            },
+          ],
+          usage: usageData,
+        };
+
+        logger({
+          category: "anthropic",
+          message: "transformed response",
+          level: 2,
+          auxiliary: {
+            transformedResponse: {
+              value: JSON.stringify(transformedResponse),
+              type: "object",
+            },
+            requestId: {
+              value: options.requestId,
+              type: "string",
+            },
+          },
+        });
+
+        if (options.response_model) {
+          const toolUse = response.content.find((c) => c.type === "tool_use");
+          if (toolUse && "input" in toolUse) {
+            const result = toolUse.input;
+
+            const finalParsedResponse = {
+              data: result,
+              usage: usageData,
+            } as unknown as T;
+
+            if (this.enableCaching) {
+              this.cache.set(cacheOptions, finalParsedResponse, options.requestId);
+            }
+
+            return finalParsedResponse;
+          } else {
+            if (!retries || retries < 5) {
+              return this.createChatCompletion({
+                options,
+                logger,
+                retries: (retries ?? 0) + 1,
+              });
+            }
+            logger({
+              category: "anthropic",
+              message: "error creating chat completion",
+              level: 0,
+              auxiliary: {
+                requestId: {
+                  value: options.requestId,
+                  type: "string",
+                },
+              },
+            });
+            throw new CreateChatCompletionResponseError(
+              "No tool use with input in response",
+            );
+          }
+        }
+
+        if (this.enableCaching) {
+          this.cache.set(cacheOptions, transformedResponse, options.requestId);
+          logger({
+            category: "anthropic",
+            message: "cached response",
+            level: 1,
+            auxiliary: {
+              requestId: {
+                value: options.requestId,
+                type: "string",
+              },
+              transformedResponse: {
+                value: JSON.stringify(transformedResponse),
+                type: "object",
+              },
+              cacheOptions: {
+                value: JSON.stringify(cacheOptions),
+                type: "object",
+              },
+            },
+          });
+        }
+
+        // if the function was called with a response model, it would have returned earlier
+        // so we can safely cast here to T, which defaults to AnthropicTransformedResponse
+        return transformedResponse as T;
+      } catch (error: any) {
+        lastError = error;
+        
+        // Check if it's a rate limit error
+        const isRateLimit = isRateLimitError(error);
+        
+        if (isRateLimit) {
+          // Extract retry-after header if available
+          const retryAfter = getRetryAfter(error);
+          
+          if (retryAfter) {
+            delay = retryAfter * 1000;
+            logger({
+              category: "anthropic",
+              message: `Rate limit hit, retry-after: ${retryAfter}s`,
+              level: 1,
+              auxiliary: {
+                attempt: { value: attempt.toString(), type: "string" },
+                nextDelayMs: { value: delay.toString(), type: "string" },
+                requestId: { value: options.requestId, type: "string" },
+              },
+            });
+          } else {
+            // Exponential backoff with jitter
+            const jitter = Math.random() * 1000;
+            delay = Math.min(delay * 2 + jitter, 60000); // Max 60s
+            logger({
+              category: "anthropic", 
+              message: "Rate limit hit, using exponential backoff",
+              level: 1,
+              auxiliary: {
+                attempt: { value: attempt.toString(), type: "string" },
+                nextDelayMs: { value: delay.toString(), type: "string" },
+                requestId: { value: options.requestId, type: "string" },
+              },
+            });
+          }
+        } else {
+          // For non-rate limit errors, use standard backoff
+          delay = Math.min(delay * 2, 10000); // Max 10s for non-rate limits
+          
+          logger({
+            category: "anthropic",
+            message: `API error: ${error?.message || 'Unknown error'}`,
+            level: 0,
+            auxiliary: {
+              attempt: { value: attempt.toString(), type: "string" },
+              error: { value: JSON.stringify(error), type: "object" },
+              requestId: { value: options.requestId, type: "string" },
+            },
+          });
+        }
+        
+        // Don't retry if we've exceeded attempts (unless it's a rate limit)
+        if (!isRateLimit && attempt >= 3) {
+          throw error;
+        }
+        
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
       }
     }
-
-    if (this.enableCaching) {
-      this.cache.set(cacheOptions, transformedResponse, options.requestId);
-      logger({
-        category: "anthropic",
-        message: "cached response",
-        level: 1,
-        auxiliary: {
-          requestId: {
-            value: options.requestId,
-            type: "string",
-          },
-          transformedResponse: {
-            value: JSON.stringify(transformedResponse),
-            type: "object",
-          },
-          cacheOptions: {
-            value: JSON.stringify(cacheOptions),
-            type: "object",
-          },
-        },
-      });
-    }
-
-    // if the function was called with a response model, it would have returned earlier
-    // so we can safely cast here to T, which defaults to AnthropicTransformedResponse
-    return transformedResponse as T;
+    
+    // If we get here, we've exhausted all retries
+    throw lastError || new Error('Failed to complete Anthropic API request');
   }
 }
 
