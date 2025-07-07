@@ -17,6 +17,38 @@ import { AgentScreenshotProviderError } from "@/types/stagehandErrors";
 
 export type ResponseInputItem = AnthropicMessage | AnthropicToolResult;
 
+// Type for usage with cache metrics
+interface UsageWithCache {
+  input_tokens: number;
+  output_tokens: number;
+  cache_creation_input_tokens?: number;
+  cache_read_input_tokens?: number;
+}
+
+// Type for request params
+interface AnthropicRequestParams {
+  model: string;
+  max_tokens: number;
+  messages: AnthropicMessage[];
+  tools: Array<{
+    type: string;
+    name: string;
+    display_width_px: number;
+    display_height_px: number;
+    display_number: number;
+  }>;
+  betas: string[];
+  system?: Array<{
+    type: string;
+    text: string;
+    cache_control: { type: string };
+  }>;
+  thinking?: {
+    type: "enabled";
+    budget_tokens: number;
+  };
+}
+
 /**
  * Client for Anthropic's Computer Use API
  * This implementation uses the official Anthropic Messages API for Computer Use
@@ -33,6 +65,7 @@ export class AnthropicCUAClient extends AgentClient {
   private thinkingBudget: number | null = null;
   private stepNarratives: AgentStepNarrative[] = [];
   private currentStepIndex: number = 0;
+  private hasInitialScreenshot: boolean = false;
 
   constructor(
     type: AgentType,
@@ -97,6 +130,7 @@ export class AnthropicCUAClient extends AgentClient {
     // Reset narratives for new execution
     this.stepNarratives = [];
     this.currentStepIndex = 0;
+    this.hasInitialScreenshot = !!initialScreenshot;
 
     logger({
       category: "agent",
@@ -404,12 +438,20 @@ export class AnthropicCUAClient extends AgentClient {
     instruction: string,
     initialScreenshot?: string,
   ): AnthropicMessage[] {
-    const messages: AnthropicMessage[] = [
-      {
-        role: "system",
-        content: this.userProvidedInstructions,
-      },
-    ];
+    const messages: AnthropicMessage[] = [];
+
+    // Modify system message to include initial screenshot context
+    let systemContent = this.userProvidedInstructions || "";
+
+    if (initialScreenshot) {
+      systemContent +=
+        "\n\nIMPORTANT: An initial screenshot of the current page has been provided with your first message. You do NOT need to take a screenshot action before proceeding with the task. The screenshot shows the current state of the page.";
+    }
+
+    messages.push({
+      role: "system",
+      content: systemContent,
+    });
 
     // If we have an initial screenshot, include it with the instruction
     if (initialScreenshot) {
@@ -419,6 +461,10 @@ export class AnthropicCUAClient extends AgentClient {
           {
             type: "text",
             text: instruction,
+          },
+          {
+            type: "text",
+            text: "Here is the current screenshot of the page:",
           },
           {
             type: "image",
@@ -473,7 +519,7 @@ export class AnthropicCUAClient extends AgentClient {
 
       // Create the request parameters
 
-      const requestParams: Record<string, unknown> = {
+      const requestParams: AnthropicRequestParams = {
         model: this.modelName,
         max_tokens: 4096,
         messages: messages,
@@ -489,9 +535,26 @@ export class AnthropicCUAClient extends AgentClient {
         betas: ["computer-use-2025-01-24"],
       };
 
-      // Add system parameter if provided
-      if (this.userProvidedInstructions) {
-        requestParams.system = this.userProvidedInstructions;
+      // Add system parameter with caching if provided
+      if (this.userProvidedInstructions || this.hasInitialScreenshot) {
+        // Build system content with initial screenshot context if needed
+        let systemContent = this.userProvidedInstructions || "";
+
+        if (this.hasInitialScreenshot) {
+          systemContent +=
+            "\n\nIMPORTANT: An initial screenshot of the current page has been provided with your first message. You do NOT need to take a screenshot action before proceeding with the task. The screenshot shows the current state of the page.";
+          // Clear the flag after first use to avoid adding this message in subsequent calls
+          this.hasInitialScreenshot = false;
+        }
+
+        // Make system cacheable by structuring it properly for prompt caching
+        requestParams.system = [
+          {
+            type: "text",
+            text: systemContent,
+            cache_control: { type: "ephemeral" },
+          },
+        ];
       }
 
       // Add thinking parameter if available
@@ -501,8 +564,10 @@ export class AnthropicCUAClient extends AgentClient {
 
       const startTime = Date.now();
       // Create the message using the Anthropic Messages API
-      // @ts-expect-error - The Anthropic SDK types are stricter than what we need
-      const response = await this.client.beta.messages.create(requestParams);
+      // Prompt caching is now generally available - no special headers needed
+      const response = (await this.client.beta.messages.create(
+        requestParams as Parameters<typeof this.client.beta.messages.create>[0],
+      )) as Anthropic.Beta.BetaMessage;
       const endTime = Date.now();
       const elapsedMs = endTime - startTime;
       const usage = {
@@ -510,6 +575,25 @@ export class AnthropicCUAClient extends AgentClient {
         output_tokens: response.usage.output_tokens,
         inference_time_ms: elapsedMs,
       };
+
+      // Log cache metrics if available
+      if (response.usage) {
+        const usageWithCache = response.usage as UsageWithCache;
+        const cacheMetrics = {
+          cache_creation_tokens:
+            usageWithCache.cache_creation_input_tokens || 0,
+          cache_read_tokens: usageWithCache.cache_read_input_tokens || 0,
+          regular_input_tokens: response.usage.input_tokens || 0,
+          model: this.modelName,
+        };
+
+        if (
+          cacheMetrics.cache_creation_tokens > 0 ||
+          cacheMetrics.cache_read_tokens > 0
+        ) {
+          console.log("Stagehand agent cache metrics:", cacheMetrics);
+        }
+      }
 
       // Store the message ID for future use
       this.lastMessageId = response.id;
