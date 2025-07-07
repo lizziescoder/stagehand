@@ -54,7 +54,10 @@ interface AnthropicRequestParams {
  * Error type that may contain rate limit information
  */
 interface PossibleRateLimitError {
-  error?: { type?: string };
+  error?: {
+    type?: string;
+    error?: { type?: string }; // Nested error structure from SDK
+  };
   status?: number;
   response?: {
     status?: number;
@@ -69,7 +72,8 @@ interface PossibleRateLimitError {
  */
 const isRateLimitError = (error: unknown): boolean => {
   const err = error as PossibleRateLimitError;
-  // Check for Anthropic's rate_limit_error type
+  // Check for Anthropic's rate_limit_error type (including nested structure)
+  if (err?.error?.error?.type === "rate_limit_error") return true;
   if (err?.error?.type === "rate_limit_error") return true;
 
   // Check HTTP status code
@@ -687,15 +691,25 @@ export class AnthropicCUAClient extends AgentClient {
                 `[AnthropicCUA] Rate limit hit, retry-after: ${retryAfter}s, attempt: ${attempt}/${maxRetries}`,
               );
             } else {
-              // Exponential backoff with jitter
-              const jitter = Math.random() * 1000;
-              delay = Math.min(delay * 2 + jitter, 60000); // Max 60s
+              // For rate limits without retry-after, use longer delays
+              if (attempt === 1) {
+                delay = 10000; // 10 seconds initial delay for rate limits
+              } else {
+                // Exponential backoff with jitter, more aggressive for rate limits
+                const baseDelay = Math.min(delay * 2, 120000); // Max 2 minutes
+                const jitter = Math.random() * 5000; // 0-5s jitter
+                delay = baseDelay + jitter;
+              }
               console.log(
-                `[AnthropicCUA] Rate limit hit, using exponential backoff: ${delay}ms, attempt: ${attempt}/${maxRetries}`,
+                `[AnthropicCUA] Rate limit hit, using exponential backoff with longer delays: ${delay}ms, attempt: ${attempt}/${maxRetries}`,
               );
             }
           } else {
-            // For non-rate limit errors, use standard backoff
+            // For non-rate limit errors, use standard backoff but only retry 3 times
+            if (attempt >= 3) {
+              console.error("Error getting action from Anthropic:", error);
+              throw error;
+            }
             delay = Math.min(delay * 2, 10000); // Max 10s for non-rate limits
             const errorMessage =
               error instanceof Error ? error.message : String(error);
@@ -703,12 +717,6 @@ export class AnthropicCUAClient extends AgentClient {
               `[AnthropicCUA] API error (attempt ${attempt}/${maxRetries}):`,
               errorMessage,
             );
-          }
-
-          // Don't retry if we've exceeded attempts (unless it's a rate limit)
-          if (!isRateLimit && attempt >= 3) {
-            console.error("Error getting action from Anthropic:", error);
-            throw error;
           }
 
           if (attempt < maxRetries) {
