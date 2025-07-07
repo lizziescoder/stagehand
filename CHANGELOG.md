@@ -1,5 +1,43 @@
 # @browserbasehq/stagehand
 
+## 2.4.1
+
+### Patch Changes
+
+- [#856](https://github.com/browserbase/stagehand/pull/856) [`8a43c5a`](https://github.com/browserbase/stagehand/commit/8a43c5a86d4da40cfaedd9cf2e42186928bdf946) Thanks [@seanmcguire12](https://github.com/seanmcguire12)! - set download behaviour by default
+
+- [#857](https://github.com/browserbase/stagehand/pull/857) [`890ffcc`](https://github.com/browserbase/stagehand/commit/890ffccac5e0a60ade64a46eb550c981ffb3e84a) Thanks [@miguelg719](https://github.com/miguelg719)! - return "not-supported" for elements inside the shadow-dom
+
+- [#844](https://github.com/browserbase/stagehand/pull/844) [`64c1072`](https://github.com/browserbase/stagehand/commit/64c10727bda50470483a3eb175c02842db0923a1) Thanks [@seanmcguire12](https://github.com/seanmcguire12)! - don't automatically close tabs
+
+- [#860](https://github.com/browserbase/stagehand/pull/860) [`b077d3f`](https://github.com/browserbase/stagehand/commit/b077d3f48a97f47a71ccc79ae39b41e7f07f9c04) Thanks [@miguelg719](https://github.com/miguelg719)! - Set default schema on extract options with no schema
+
+- [#842](https://github.com/browserbase/stagehand/pull/842) [`8bcb5d7`](https://github.com/browserbase/stagehand/commit/8bcb5d77debf6bf7601fd5c090efd7fde75c5d5e) Thanks [@seanmcguire12](https://github.com/seanmcguire12)! - improved handling for OS level dropdowns
+
+- [#846](https://github.com/browserbase/stagehand/pull/846) [`7bf10c5`](https://github.com/browserbase/stagehand/commit/7bf10c55b267078fe847c1d7f7a60d604f9c7c94) Thanks [@miguelg719](https://github.com/miguelg719)! - Filter attaching to target worker / shared_worker
+
+## 2.4.0
+
+### Minor Changes
+
+- [#819](https://github.com/browserbase/stagehand/pull/819) [`6a18c1e`](https://github.com/browserbase/stagehand/commit/6a18c1ee1e46d55c6e90c4d5572e17ed8daa140c) Thanks [@seanmcguire12](https://github.com/seanmcguire12)! - try playwright click and fall back to JS click event
+
+### Patch Changes
+
+- [#826](https://github.com/browserbase/stagehand/pull/826) [`124e0d3`](https://github.com/browserbase/stagehand/commit/124e0d3bb54ddb6738ede6d7aa99a945ef1cacd1) Thanks [@seanmcguire12](https://github.com/seanmcguire12)! - fix issue where we are unable to take actions on text nodes
+
+- [#818](https://github.com/browserbase/stagehand/pull/818) [`1660751`](https://github.com/browserbase/stagehand/commit/1660751cd14cb5b27d44f8167216afb8d1c3c45c) Thanks [@miguelg719](https://github.com/miguelg719)! - Added CUA support for Claude 4 models
+
+- [#821](https://github.com/browserbase/stagehand/pull/821) [`cadac9d`](https://github.com/browserbase/stagehand/commit/cadac9da09123d12e5d496a0e8b12660964c1b33) Thanks [@seanmcguire12](https://github.com/seanmcguire12)! - use playwright instead of playwright test
+
+- [#832](https://github.com/browserbase/stagehand/pull/832) [`759da55`](https://github.com/browserbase/stagehand/commit/759da55775eb2df81d56ae18c0f386fd9b02a9f0) Thanks [@miguelg719](https://github.com/miguelg719)! - Fix \_refreshPageFromAPI to use parametrized apiKey
+
+- [#810](https://github.com/browserbase/stagehand/pull/810) [`a175a51`](https://github.com/browserbase/stagehand/commit/a175a519b8c14300db6f1ed30709e113d18e99db) Thanks [@miguelg719](https://github.com/miguelg719)! - Update logos
+
+- [#822](https://github.com/browserbase/stagehand/pull/822) [`8527a80`](https://github.com/browserbase/stagehand/commit/8527a80522c3eedb9516a6caa1a0e4e4be981a3d) Thanks [@miguelg719](https://github.com/miguelg719)! - Add model with date tag for OpenAI CUA
+
+- [#833](https://github.com/browserbase/stagehand/pull/833) [`55fca2f`](https://github.com/browserbase/stagehand/commit/55fca2f7da63cc0ef6e27b45a33f63c666cdce7e) Thanks [@seanmcguire12](https://github.com/seanmcguire12)! - adjust stagehandLogger.warn() level to be 1 instead of 0
+
 ## 2.3.1
 
 ### Patch Changes

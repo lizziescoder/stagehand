@@ -1,5 +1,21 @@
 # @browserbasehq/stagehand-evals
 
+## 1.0.5
+
+### Patch Changes
+
+- Updated dependencies [[`8a43c5a`](https://github.com/browserbase/stagehand/commit/8a43c5a86d4da40cfaedd9cf2e42186928bdf946), [`890ffcc`](https://github.com/browserbase/stagehand/commit/890ffccac5e0a60ade64a46eb550c981ffb3e84a), [`64c1072`](https://github.com/browserbase/stagehand/commit/64c10727bda50470483a3eb175c02842db0923a1), [`b077d3f`](https://github.com/browserbase/stagehand/commit/b077d3f48a97f47a71ccc79ae39b41e7f07f9c04), [`8bcb5d7`](https://github.com/browserbase/stagehand/commit/8bcb5d77debf6bf7601fd5c090efd7fde75c5d5e), [`7bf10c5`](https://github.com/browserbase/stagehand/commit/7bf10c55b267078fe847c1d7f7a60d604f9c7c94)]:
+  - @browserbasehq/stagehand@2.4.1
+
+## 1.0.4
+
+### Patch Changes
+
+- [#831](https://github.com/browserbase/stagehand/pull/831) [`5812b02`](https://github.com/browserbase/stagehand/commit/5812b027e4919d005321cc00626b057e6e04074b) Thanks [@seanmcguire12](https://github.com/seanmcguire12)! - added -man & -h commands for explaining how to run evals
+
+- Updated dependencies [[`124e0d3`](https://github.com/browserbase/stagehand/commit/124e0d3bb54ddb6738ede6d7aa99a945ef1cacd1), [`6a18c1e`](https://github.com/browserbase/stagehand/commit/6a18c1ee1e46d55c6e90c4d5572e17ed8daa140c), [`1660751`](https://github.com/browserbase/stagehand/commit/1660751cd14cb5b27d44f8167216afb8d1c3c45c), [`cadac9d`](https://github.com/browserbase/stagehand/commit/cadac9da09123d12e5d496a0e8b12660964c1b33), [`759da55`](https://github.com/browserbase/stagehand/commit/759da55775eb2df81d56ae18c0f386fd9b02a9f0), [`a175a51`](https://github.com/browserbase/stagehand/commit/a175a519b8c14300db6f1ed30709e113d18e99db), [`8527a80`](https://github.com/browserbase/stagehand/commit/8527a80522c3eedb9516a6caa1a0e4e4be981a3d), [`55fca2f`](https://github.com/browserbase/stagehand/commit/55fca2f7da63cc0ef6e27b45a33f63c666cdce7e)]:
+  - @browserbasehq/stagehand@2.4.0
+
 ## 1.0.3
 
 ### Patch Changes
