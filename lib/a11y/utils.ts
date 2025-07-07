@@ -26,7 +26,7 @@ import {
   StagehandIframeError,
   XPathResolutionError,
 } from "@/types/stagehandErrors";
-import { CDPSession, Frame } from "@playwright/test";
+import { CDPSession, Frame } from "playwright";
 
 const IFRAME_STEP_RE = /iframe\[\d+]$/i;
 const PUA_START = 0xe000;
@@ -301,6 +301,14 @@ async function cleanStructuralNodes(
   ) {
     const tagName = tagNameMap[node.encodedId];
     if (tagName) node.role = tagName;
+  }
+
+  if (
+    node.role === "combobox" &&
+    node.encodedId !== undefined &&
+    tagNameMap[node.encodedId] === "select"
+  ) {
+    node.role = "select";
   }
 
   // 5. drop redundant StaticText children

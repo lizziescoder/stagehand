@@ -1,4 +1,4 @@
-import { Page, Locator, FrameLocator } from "@playwright/test";
+import { Page, Locator, FrameLocator } from "playwright";
 import { PlaywrightCommandException } from "../../../types/playwright";
 import { StagehandPage } from "../../StagehandPage";
 import { getNodeFromXpath } from "@/lib/dom/utils";
@@ -59,6 +59,7 @@ export const methodHandlerMap: Record<
   click: clickElement,
   nextChunk: scrollToNextChunk,
   prevChunk: scrollToPreviousChunk,
+  selectOptionFromDropdown: selectOption,
 };
 
 export async function scrollToNextChunk(ctx: MethodHandlerContext) {
@@ -349,6 +350,26 @@ export async function pressKey(ctx: MethodHandlerContext) {
   }
 }
 
+export async function selectOption(ctx: MethodHandlerContext) {
+  const { locator, xpath, args, logger } = ctx;
+  try {
+    const text = args[0]?.toString() || "";
+    await locator.selectOption(text, { timeout: 5000 });
+  } catch (e) {
+    logger({
+      category: "action",
+      message: "error selecting option",
+      level: 0,
+      auxiliary: {
+        error: { value: e.message, type: "string" },
+        trace: { value: e.stack, type: "string" },
+        xpath: { value: xpath, type: "string" },
+      },
+    });
+    throw new PlaywrightCommandException(e.message);
+  }
+}
+
 export async function clickElement(ctx: MethodHandlerContext) {
   const {
     locator,
@@ -373,13 +394,11 @@ export async function clickElement(ctx: MethodHandlerContext) {
   });
 
   try {
-    await locator.evaluate((el) => {
-      (el as HTMLElement).click();
-    });
+    await locator.click({ timeout: 3_500 });
   } catch (e) {
     logger({
       category: "action",
-      message: "error performing click",
+      message: "Playwright click failed, falling back to JS click",
       level: 1,
       auxiliary: {
         error: { value: e.message, type: "string" },
@@ -389,7 +408,24 @@ export async function clickElement(ctx: MethodHandlerContext) {
         args: { value: JSON.stringify(args), type: "object" },
       },
     });
-    throw new StagehandClickError(xpath, e.message);
+
+    try {
+      await locator.evaluate((el) => (el as HTMLElement).click());
+    } catch (e) {
+      logger({
+        category: "action",
+        message: "error performing click (JS fallback)",
+        level: 0,
+        auxiliary: {
+          error: { value: e.message, type: "string" },
+          trace: { value: e.stack, type: "string" },
+          xpath: { value: xpath, type: "string" },
+          method: { value: "click", type: "string" },
+          args: { value: JSON.stringify(args), type: "object" },
+        },
+      });
+      throw new StagehandClickError(xpath, e.message);
+    }
   }
 
   await handlePossiblePageNavigation(
@@ -485,8 +521,6 @@ async function handlePossiblePageNavigation(
         url: { value: newOpenedTab.url(), type: "string" },
       },
     });
-    await newOpenedTab.close();
-    await stagehandPage.page.goto(newOpenedTab.url());
     await stagehandPage.page.waitForLoadState("domcontentloaded");
   }
 
