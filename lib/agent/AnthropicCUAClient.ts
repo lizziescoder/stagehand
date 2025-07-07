@@ -18,9 +18,12 @@ import { AgentScreenshotProviderError } from "@/types/stagehandErrors";
 export type ResponseInputItem = AnthropicMessage | AnthropicToolResult;
 
 // Type for usage with cache metrics
-interface UsageWithCache extends Record<string, any> {
+interface UsageWithCache {
+  input_tokens: number;
+  output_tokens: number;
   cache_creation_input_tokens?: number;
   cache_read_input_tokens?: number;
+  [key: string]: number | undefined;
 }
 
 // Type for request params
@@ -48,31 +51,58 @@ interface AnthropicRequestParams {
 }
 
 /**
+ * Error type that may contain rate limit information
+ */
+interface PossibleRateLimitError {
+  error?: { type?: string };
+  status?: number;
+  response?: {
+    status?: number;
+    headers?: Record<string, string> | { get?: (key: string) => string | null };
+  };
+  headers?: Record<string, string>;
+  message?: unknown;
+}
+
+/**
  * Check if an error is a rate limit error from Anthropic
  */
-const isRateLimitError = (error: any): boolean => {
+const isRateLimitError = (error: unknown): boolean => {
+  const err = error as PossibleRateLimitError;
   // Check for Anthropic's rate_limit_error type
-  if (error?.error?.type === 'rate_limit_error') return true;
-  
-  // Check HTTP status code  
-  if (error?.status === 429 || error?.response?.status === 429) return true;
-  
+  if (err?.error?.type === "rate_limit_error") return true;
+
+  // Check HTTP status code
+  if (err?.status === 429 || err?.response?.status === 429) return true;
+
   // Check if the error message contains rate limit info
-  if (error?.message && typeof error.message === 'string') {
-    return error.message.includes('rate_limit_error') || error.message.includes('429');
+  if (err?.message && typeof err.message === "string") {
+    return (
+      err.message.includes("rate_limit_error") || err.message.includes("429")
+    );
   }
-  
+
   return false;
 };
 
 /**
  * Extract retry-after header from various error structures
  */
-const getRetryAfter = (error: any): number | null => {
-  const retryAfter = error?.headers?.['retry-after'] || 
-                    error?.response?.headers?.['retry-after'] ||
-                    error?.response?.headers?.get?.('retry-after');
-  
+const getRetryAfter = (error: unknown): number | null => {
+  const err = error as PossibleRateLimitError;
+  const headers = err?.headers;
+  const responseHeaders = err?.response?.headers;
+
+  let retryAfter: string | null | undefined = headers?.["retry-after"];
+
+  if (!retryAfter && responseHeaders) {
+    if (typeof responseHeaders.get === "function") {
+      retryAfter = responseHeaders.get("retry-after");
+    } else if (typeof responseHeaders === "object") {
+      retryAfter = (responseHeaders as Record<string, string>)["retry-after"];
+    }
+  }
+
   return retryAfter ? parseInt(retryAfter) : null;
 };
 
@@ -591,16 +621,18 @@ export class AnthropicCUAClient extends AgentClient {
 
       // Retry logic for API calls
       const maxRetries = 8;
-      let lastError: any = null;
+      let lastError: unknown = null;
       let delay = 1000; // Initial delay of 1 second
-      
+
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           const startTime = Date.now();
           // Create the message using the Anthropic Messages API
           // Prompt caching is now generally available - no special headers needed
           const response = (await this.client.beta.messages.create(
-            requestParams as Parameters<typeof this.client.beta.messages.create>[0],
+            requestParams as Parameters<
+              typeof this.client.beta.messages.create
+            >[0],
           )) as Anthropic.Beta.BetaMessage;
           const endTime = Date.now();
           const elapsedMs = endTime - startTime;
@@ -639,45 +671,57 @@ export class AnthropicCUAClient extends AgentClient {
             id: response.id,
             usage,
           };
-        } catch (error: any) {
+        } catch (error) {
           lastError = error;
-          
+
           // Check if it's a rate limit error
           const isRateLimit = isRateLimitError(error);
-          
+
           if (isRateLimit) {
             // Extract retry-after header if available
             const retryAfter = getRetryAfter(error);
-            
+
             if (retryAfter) {
               delay = retryAfter * 1000;
-              console.log(`[AnthropicCUA] Rate limit hit, retry-after: ${retryAfter}s, attempt: ${attempt}/${maxRetries}`);
+              console.log(
+                `[AnthropicCUA] Rate limit hit, retry-after: ${retryAfter}s, attempt: ${attempt}/${maxRetries}`,
+              );
             } else {
               // Exponential backoff with jitter
               const jitter = Math.random() * 1000;
               delay = Math.min(delay * 2 + jitter, 60000); // Max 60s
-              console.log(`[AnthropicCUA] Rate limit hit, using exponential backoff: ${delay}ms, attempt: ${attempt}/${maxRetries}`);
+              console.log(
+                `[AnthropicCUA] Rate limit hit, using exponential backoff: ${delay}ms, attempt: ${attempt}/${maxRetries}`,
+              );
             }
           } else {
             // For non-rate limit errors, use standard backoff
             delay = Math.min(delay * 2, 10000); // Max 10s for non-rate limits
-            console.error(`[AnthropicCUA] API error (attempt ${attempt}/${maxRetries}):`, error?.message || error);
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            console.error(
+              `[AnthropicCUA] API error (attempt ${attempt}/${maxRetries}):`,
+              errorMessage,
+            );
           }
-          
+
           // Don't retry if we've exceeded attempts (unless it's a rate limit)
           if (!isRateLimit && attempt >= 3) {
             console.error("Error getting action from Anthropic:", error);
             throw error;
           }
-          
+
           if (attempt < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, delay));
+            await new Promise((resolve) => setTimeout(resolve, delay));
           }
         }
       }
-      
+
       // If we get here, we've exhausted all retries
-      console.error("Error getting action from Anthropic after all retries:", lastError);
+      console.error(
+        "Error getting action from Anthropic after all retries:",
+        lastError,
+      );
       throw lastError;
     } catch (error) {
       console.error("Error getting action from Anthropic:", error);

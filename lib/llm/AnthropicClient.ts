@@ -17,31 +17,58 @@ import {
 import { CreateChatCompletionResponseError } from "@/types/stagehandErrors";
 
 /**
+ * Error type that may contain rate limit information
+ */
+interface PossibleRateLimitError {
+  error?: { type?: string };
+  status?: number;
+  response?: {
+    status?: number;
+    headers?: Record<string, string> | { get?: (key: string) => string | null };
+  };
+  headers?: Record<string, string>;
+  message?: unknown;
+}
+
+/**
  * Check if an error is a rate limit error from Anthropic
  */
-const isRateLimitError = (error: any): boolean => {
+const isRateLimitError = (error: unknown): boolean => {
+  const err = error as PossibleRateLimitError;
   // Check for Anthropic's rate_limit_error type
-  if (error?.error?.type === 'rate_limit_error') return true;
-  
+  if (err?.error?.type === "rate_limit_error") return true;
+
   // Check HTTP status code
-  if (error?.status === 429 || error?.response?.status === 429) return true;
-  
+  if (err?.status === 429 || err?.response?.status === 429) return true;
+
   // Check if the error message contains rate limit info
-  if (error?.message && typeof error.message === 'string') {
-    return error.message.includes('rate_limit_error') || error.message.includes('429');
+  if (err?.message && typeof err.message === "string") {
+    return (
+      err.message.includes("rate_limit_error") || err.message.includes("429")
+    );
   }
-  
+
   return false;
 };
 
 /**
  * Extract retry-after header from various error structures
  */
-const getRetryAfter = (error: any): number | null => {
-  const retryAfter = error?.headers?.['retry-after'] || 
-                    error?.response?.headers?.['retry-after'] ||
-                    error?.response?.headers?.get?.('retry-after');
-  
+const getRetryAfter = (error: unknown): number | null => {
+  const err = error as PossibleRateLimitError;
+  const headers = err?.headers;
+  const responseHeaders = err?.response?.headers;
+
+  let retryAfter: string | null | undefined = headers?.["retry-after"];
+
+  if (!retryAfter && responseHeaders) {
+    if (typeof responseHeaders.get === "function") {
+      retryAfter = responseHeaders.get("retry-after");
+    } else if (typeof responseHeaders === "object") {
+      retryAfter = (responseHeaders as Record<string, string>)["retry-after"];
+    }
+  }
+
   return retryAfter ? parseInt(retryAfter) : null;
 };
 
@@ -258,9 +285,9 @@ export class AnthropicClient extends LLMClient {
 
     // Retry logic for API calls
     const maxRetries = 8;
-    let lastError: any = null;
+    let lastError: unknown = null;
     let delay = 1000; // Initial delay of 1 second
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const response = await this.client.messages.create({
@@ -294,7 +321,8 @@ export class AnthropicClient extends LLMClient {
         const usageData = {
           prompt_tokens: response.usage.input_tokens,
           completion_tokens: response.usage.output_tokens,
-          total_tokens: response.usage.input_tokens + response.usage.output_tokens,
+          total_tokens:
+            response.usage.input_tokens + response.usage.output_tokens,
         };
 
         const transformedResponse: LLMResponse = {
@@ -353,7 +381,11 @@ export class AnthropicClient extends LLMClient {
             } as unknown as T;
 
             if (this.enableCaching) {
-              this.cache.set(cacheOptions, finalParsedResponse, options.requestId);
+              this.cache.set(
+                cacheOptions,
+                finalParsedResponse,
+                options.requestId,
+              );
             }
 
             return finalParsedResponse;
@@ -408,16 +440,16 @@ export class AnthropicClient extends LLMClient {
         // if the function was called with a response model, it would have returned earlier
         // so we can safely cast here to T, which defaults to AnthropicTransformedResponse
         return transformedResponse as T;
-      } catch (error: any) {
+      } catch (error) {
         lastError = error;
-        
+
         // Check if it's a rate limit error
         const isRateLimit = isRateLimitError(error);
-        
+
         if (isRateLimit) {
           // Extract retry-after header if available
           const retryAfter = getRetryAfter(error);
-          
+
           if (retryAfter) {
             delay = retryAfter * 1000;
             logger({
@@ -435,7 +467,7 @@ export class AnthropicClient extends LLMClient {
             const jitter = Math.random() * 1000;
             delay = Math.min(delay * 2 + jitter, 60000); // Max 60s
             logger({
-              category: "anthropic", 
+              category: "anthropic",
               message: "Rate limit hit, using exponential backoff",
               level: 1,
               auxiliary: {
@@ -448,10 +480,12 @@ export class AnthropicClient extends LLMClient {
         } else {
           // For non-rate limit errors, use standard backoff
           delay = Math.min(delay * 2, 10000); // Max 10s for non-rate limits
-          
+
+          const errorMessage =
+            error instanceof Error ? error.message : "Unknown error";
           logger({
             category: "anthropic",
-            message: `API error: ${error?.message || 'Unknown error'}`,
+            message: `API error: ${errorMessage}`,
             level: 0,
             auxiliary: {
               attempt: { value: attempt.toString(), type: "string" },
@@ -460,20 +494,20 @@ export class AnthropicClient extends LLMClient {
             },
           });
         }
-        
+
         // Don't retry if we've exceeded attempts (unless it's a rate limit)
         if (!isRateLimit && attempt >= 3) {
           throw error;
         }
-        
+
         if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, delay));
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     }
-    
+
     // If we get here, we've exhausted all retries
-    throw lastError || new Error('Failed to complete Anthropic API request');
+    throw lastError || new Error("Failed to complete Anthropic API request");
   }
 }
 
