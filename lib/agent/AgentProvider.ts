@@ -3,6 +3,7 @@ import { AgentClient } from "./AgentClient";
 import { AgentType } from "@/types/agent";
 import { OpenAICUAClient } from "./OpenAICUAClient";
 import { AnthropicCUAClient } from "./AnthropicCUAClient";
+import { LumeCUAClient } from "./LumeCUAClient";
 import {
   UnsupportedModelError,
   UnsupportedModelProviderError,
@@ -16,6 +17,11 @@ const modelToAgentProviderMap: Record<string, AgentType> = {
   "claude-3-7-sonnet-20250219": "anthropic",
   "claude-3-7-sonnet-latest": "anthropic",
   "claude-sonnet-4-20250514": "anthropic", // Add support for claude-sonnet-4
+  // Lume models - these use the same Anthropic models but with LumeComputer
+  "lume-claude-3-5-sonnet-20240620": "lume",
+  "lume-claude-3-7-sonnet-20250219": "lume",
+  "lume-claude-3-7-sonnet-latest": "lume",
+  "lume-claude-sonnet-4-20250514": "lume",
 };
 
 /**
@@ -63,9 +69,21 @@ export class AgentProvider {
             userProvidedInstructions,
             clientOptions,
           );
+        case "lume": {
+          // For lume, extract the actual model name (remove "lume-" prefix)
+          const actualModelName = modelName.startsWith("lume-")
+            ? modelName.substring(5)
+            : modelName;
+          return new LumeCUAClient(
+            type,
+            actualModelName,
+            userProvidedInstructions,
+            clientOptions,
+          );
+        }
         default:
           throw new UnsupportedModelProviderError(
-            ["openai", "anthropic"],
+            ["openai", "anthropic", "lume"],
             "Computer Use Agent",
           );
       }
