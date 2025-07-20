@@ -1,7 +1,7 @@
 import { EvalFunction } from "@/types/evals";
 import { FrameLocator } from "playwright";
 
-export const iframes_nested: EvalFunction = async ({
+export const nested_iframes_2: EvalFunction = async ({
   debugUrl,
   sessionUrl,
   stagehand,
@@ -10,24 +10,23 @@ export const iframes_nested: EvalFunction = async ({
   const page = stagehand.page;
   try {
     await page.goto(
-      "https://browserbase.github.io/stagehand-eval-sites/sites/nested-iframes/",
+      "https://browserbase.github.io/stagehand-eval-sites/sites/nested-iframes-2/",
     );
 
     await page.act({
-      action: "type 'stagehand' into the 'username' field",
+      action: "click the button called 'click me (inner 2)'",
       iframes: true,
     });
 
     const inner: FrameLocator = page
-      .frameLocator("iframe.lvl1") // level 1
-      .frameLocator("iframe.lvl2") // level 2
-      .frameLocator("iframe.lvl3"); // level 3 – form lives here
+      .frameLocator('iframe[src="iframe2.html"]')
+      .frameLocator('iframe[src="inner2.html"]');
 
-    const usernameText = await inner
-      .locator('input[name="username"]')
-      .inputValue();
+    const messageText = await inner.locator("#msg").textContent();
 
-    const passed: boolean = usernameText.toLowerCase().trim() === "stagehand";
+    const passed: boolean =
+      messageText.toLowerCase().trim() ===
+      "clicked the button in the second inner iframe";
 
     return {
       _success: passed,
@@ -38,10 +37,10 @@ export const iframes_nested: EvalFunction = async ({
   } catch (error) {
     return {
       _success: false,
-      error: error,
       logs: logger.getLogs(),
       debugUrl,
       sessionUrl,
+      error,
     };
   } finally {
     await stagehand.close();
