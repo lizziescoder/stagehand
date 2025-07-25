@@ -686,8 +686,8 @@ export class Stagehand {
     }
 
     this.usingAPI = useAPI;
-    if (this.usingAPI && env === "LOCAL") {
-      // Make env supersede useAPI
+    if (this.usingAPI && (env === "LOCAL" || env === "EXTENSION")) {
+      // Make env supersede useAPI for local and extension modes
       this.usingAPI = false;
     } else if (
       this.usingAPI &&
