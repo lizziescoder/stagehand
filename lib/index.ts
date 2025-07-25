@@ -70,7 +70,7 @@ const defaultLogger = async (logLine: LogLine, disablePino?: boolean) => {
 async function getBrowser(
   apiKey: string | undefined,
   projectId: string | undefined,
-  env: "LOCAL" | "BROWSERBASE" = "LOCAL",
+  env: "LOCAL" | "BROWSERBASE" | "EXTENSION" = "LOCAL",
   headless: boolean = false,
   logger: (message: LogLine) => void,
   browserbaseSessionCreateParams?: Browserbase.Sessions.SessionCreateParams,
@@ -225,6 +225,43 @@ async function getBrowser(
     const context = browser.contexts()[0];
 
     return { browser, context, debugUrl, sessionUrl, sessionId, env };
+  } else if (env === "EXTENSION") {
+    // Extension mode
+    const extensionConnectionId =
+      localBrowserLaunchOptions?.extensionConnectionId;
+    if (!extensionConnectionId) {
+      throw new StagehandError(
+        "extensionConnectionId is required for EXTENSION environment",
+      );
+    }
+
+    logger({
+      category: "init",
+      message: "connecting to Chrome extension",
+      level: 1,
+      auxiliary: {
+        connectionId: {
+          value: extensionConnectionId,
+          type: "string",
+        },
+      },
+    });
+
+    // Get WebSocket URL from environment or use default
+    const wsUrl =
+      process.env.EXTENSION_WS_URL || "ws://localhost:3050/ws/extension";
+
+    const { ExtensionBrowser } = await import("./extension/ExtensionBrowser");
+    const browser = new ExtensionBrowser(extensionConnectionId, wsUrl);
+    await browser.connect();
+
+    const context = await browser.newContext();
+
+    return {
+      browser: browser as unknown as Browser,
+      context: context as unknown as BrowserContext,
+      env: "EXTENSION",
+    };
   } else {
     if (localBrowserLaunchOptions?.cdpUrl) {
       if (!localBrowserLaunchOptions.cdpUrl.includes("connect.connect")) {
@@ -394,7 +431,7 @@ export class Stagehand {
   private stagehandLogger: StagehandLogger;
   private disablePino: boolean;
   private modelClientOptions: ClientOptions;
-  private _env: "LOCAL" | "BROWSERBASE";
+  private _env: "LOCAL" | "BROWSERBASE" | "EXTENSION";
   private _browser: Browser | undefined;
   private _isClosed: boolean = false;
   private _history: Array<HistoryEntry> = [];
@@ -526,6 +563,8 @@ export class Stagehand {
       modelName,
       modelClientOptions,
       systemPrompt,
+      instructions,
+      extensionConnectionId,
       useAPI = true,
       localBrowserLaunchOptions,
       waitForCaptchaSolves = false,
@@ -636,7 +675,16 @@ export class Stagehand {
     this.headless = localBrowserLaunchOptions?.headless ?? false;
     this.browserbaseSessionCreateParams = browserbaseSessionCreateParams;
     this.browserbaseSessionID = browserbaseSessionID;
-    this.userProvidedInstructions = systemPrompt;
+    this.userProvidedInstructions = instructions || systemPrompt;
+
+    // Store extension connection ID if provided
+    if (extensionConnectionId && env === "EXTENSION") {
+      this.localBrowserLaunchOptions = {
+        ...this.localBrowserLaunchOptions,
+        extensionConnectionId,
+      };
+    }
+
     this.usingAPI = useAPI;
     if (this.usingAPI && env === "LOCAL") {
       // Make env supersede useAPI

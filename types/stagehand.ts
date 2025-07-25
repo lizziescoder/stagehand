@@ -11,7 +11,7 @@ export interface ConstructorParams {
   /**
    * The environment to use for Stagehand
    */
-  env: "LOCAL" | "BROWSERBASE";
+  env: "LOCAL" | "BROWSERBASE" | "EXTENSION";
   /**
    * Your Browserbase API key
    */
@@ -72,6 +72,14 @@ export interface ConstructorParams {
    * Customize the Stagehand system prompt
    */
   systemPrompt?: string;
+  /**
+   * Custom instructions to be used by the agent
+   */
+  instructions?: string;
+  /**
+   * Connection ID for Chrome Extension mode
+   */
+  extensionConnectionId?: string;
   /**
    * Offload Stagehand method calls to the Stagehand API.
    * Must have a valid API key to use
@@ -204,6 +212,7 @@ export interface LocalBrowserLaunchOptions {
   bypassCSP?: boolean;
   cookies?: Cookie[];
   cdpUrl?: string;
+  extensionConnectionId?: string;
 }
 
 export interface StagehandMetrics {
