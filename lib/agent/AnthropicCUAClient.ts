@@ -91,6 +91,16 @@ export class AnthropicCUAClient extends AgentClient {
         required: ["description"],
       },
     },
+    {
+      type: "custom",
+      name: "wait_for_load",
+      description: "Wait for the page to fully load",
+      input_schema: {
+        type: "object",
+        properties: {},
+        required: [] as string[],
+      },
+    },
   ];
 
   constructor(
@@ -676,6 +686,18 @@ export class AnthropicCUAClient extends AgentClient {
             message: `Added toggle tool result for tool_use_id: ${item.id}`,
             level: 2,
           });
+        } else if (item.name === "wait_for_load") {
+          nextInputItems.push({
+            type: "tool_result",
+            tool_use_id: item.id,
+            content: "Successfully waited for page to fully load",
+          });
+
+          logger({
+            category: "agent",
+            message: `Added wait_for_load tool result for tool_use_id: ${item.id}`,
+            level: 2,
+          });
         }
         // For computer tool, capture screenshot and return image
         else if (item.name === "computer") {
@@ -842,6 +864,12 @@ export class AnthropicCUAClient extends AgentClient {
           type: "toggle",
           description: input.description as string,
           ...input,
+        };
+      }
+
+      if (name === "wait_for_load") {
+        return {
+          type: "wait_for_load",
         };
       }
 
@@ -1085,5 +1113,67 @@ export class AnthropicCUAClient extends AgentClient {
       "`screenshotProvider` has not been set. " +
         "Please call `setScreenshotProvider()` with a valid function that returns a base64-encoded image",
     );
+  }
+
+  /**
+   * Verify if a page is visually loaded by analyzing a screenshot with Anthropic
+   * @param screenshot Base64 encoded screenshot
+   * @returns Promise<boolean> indicating if the page appears visually loaded
+   */
+  async verifyPageVisuallyLoaded(screenshot: string): Promise<boolean> {
+    try {
+      const messages = [
+        {
+          role: "user" as const,
+          content: [
+            {
+              type: "text" as const,
+              text: `Analyze this screenshot and determine if the page appears fully loaded.
+              
+              Return true if:
+              - Content is visible and not blurred/obscured
+              - No visible loading animations or spinners
+              - Text is readable and not placeholder text
+              - The page layout appears complete
+              
+              Return false if:
+              - Loading overlays or spinners are visible
+              - Content areas are blank or showing skeletons
+              - The page appears to be mid-render
+              - Error messages or broken layouts are visible
+              
+              Respond with only 'true' or 'false'.`,
+            },
+            {
+              type: "image" as const,
+              source: {
+                type: "base64" as const,
+                media_type: "image/png" as const,
+                data: screenshot.replace(/^data:image\/png;base64,/, ""),
+              },
+            },
+          ],
+        },
+      ];
+
+      const response = await this.client.messages.create({
+        model: this.modelName,
+        max_tokens: 10,
+        messages: messages,
+        temperature: 0,
+      });
+
+      // Parse the response
+      const content = response.content[0];
+      if (content && content.type === "text") {
+        const result = content.text.toLowerCase().trim();
+        return result === "true";
+      }
+
+      return false;
+    } catch (error) {
+      console.error("Error verifying screenshot with Anthropic:", error);
+      return false;
+    }
   }
 }

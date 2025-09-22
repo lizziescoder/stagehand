@@ -2,6 +2,7 @@ import { StagehandPage } from "../StagehandPage";
 import { AgentProvider } from "../agent/AgentProvider";
 import { StagehandAgent } from "../agent/StagehandAgent";
 import { AgentClient } from "../agent/AgentClient";
+import { AnthropicCUAClient } from "../agent/AnthropicCUAClient";
 import { LogLine } from "../../types/log";
 import {
   AgentExecuteOptions,
@@ -561,6 +562,148 @@ export class StagehandAgentHandler {
               error: errorMessage,
             };
           }
+        }
+
+        case "wait_for_load": {
+          this.logger({
+            category: "agent",
+            message: "Starting wait_for_load - initial 3 second wait",
+            level: 1,
+          });
+
+          // Import zod for proper schema definition
+          const { z } = await import("zod");
+
+          // Initial 3-second wait
+          await this.page.waitForTimeout(3000);
+
+          const startTime = Date.now();
+          const maxWaitTime = 180000; // 3 minutes
+          let isLoaded = false;
+          let attempt = 0;
+          let lastExtractResult = false;
+          let lastScreenshotResult = false;
+
+          while (!isLoaded && Date.now() - startTime < maxWaitTime) {
+            attempt++;
+
+            try {
+              // Step 1: Extract boolean from page using proper zod schema (as per Stagehand docs)
+              const loadedSchema = z.object({
+                isLoaded: z
+                  .boolean()
+                  .describe("Whether the page is fully loaded"),
+              });
+
+              const extractResult = await this.stagehandPage.extract({
+                instruction: `Analyze the current page and determine if it's fully loaded.
+                
+                Return isLoaded as true if:
+                - Main content is visible and rendered
+                - No loading spinners or indicators are present
+                - The page appears ready for user interaction
+                - Text content is fully displayed (not placeholders)
+                
+                Return isLoaded as false if:
+                - Loading indicators, spinners, or "please wait" messages are visible
+                - Content areas are empty or showing placeholders
+                - The page shows "loading", "fetching", or "processing" messages
+                - Main content hasn't appeared yet
+                - Error messages about loading failures are present`,
+                schema: loadedSchema,
+              });
+
+              // Extract result is now properly typed as { isLoaded: boolean }
+              lastExtractResult = extractResult.isLoaded;
+
+              // Step 2: Take a screenshot and verify through Anthropic directly
+              const screenshotBuffer = await this.page.screenshot();
+              const screenshot = screenshotBuffer.toString("base64");
+
+              // Verify screenshot isn't blank (basic check)
+              if (!screenshot || screenshot.length < 5000) {
+                lastScreenshotResult = false;
+              } else {
+                // Use Anthropic API directly to verify the screenshot
+                // Check if we're using AnthropicCUAClient
+                if (this.agentClient instanceof AnthropicCUAClient) {
+                  lastScreenshotResult =
+                    await this.agentClient.verifyPageVisuallyLoaded(screenshot);
+                } else {
+                  // Fallback: if not using Anthropic, just check screenshot exists
+                  // You could also use a different verification method here
+                  lastScreenshotResult = true;
+                  this.logger({
+                    category: "agent",
+                    message: `Visual check skipped (not using Anthropic), assuming loaded based on screenshot size`,
+                    level: 2,
+                  });
+                }
+              }
+
+              // Both checks must pass for the page to be considered loaded
+              isLoaded =
+                lastExtractResult === true && lastScreenshotResult === true;
+
+              this.logger({
+                category: "agent",
+                message: `Wait attempt ${attempt}: DOM check=${lastExtractResult}, Visual check=${lastScreenshotResult}, Combined=${isLoaded}`,
+                level: 2,
+              });
+
+              if (!isLoaded) {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+
+                if (elapsed >= 180) {
+                  throw new Error(
+                    `Page failed to load after 3 minutes. DOM check=${lastExtractResult}, Visual check=${lastScreenshotResult}`,
+                  );
+                }
+
+                this.logger({
+                  category: "agent",
+                  message: `Page not fully loaded after ${elapsed}s, waiting 10 more seconds...`,
+                  level: 2,
+                });
+
+                // Wait 10 seconds before next check
+                await this.page.waitForTimeout(10000);
+              }
+            } catch (error) {
+              const errorMessage =
+                error instanceof Error ? error.message : String(error);
+
+              this.logger({
+                category: "agent",
+                message: `Error during load check: ${errorMessage}, continuing to wait...`,
+                level: 1,
+              });
+
+              // If extraction fails, page might still be loading
+              const elapsed = Math.floor((Date.now() - startTime) / 1000);
+              if (elapsed >= 180) {
+                throw new Error(
+                  `Page failed to load after 3 minutes. Last error: ${errorMessage}`,
+                );
+              }
+
+              await this.page.waitForTimeout(10000);
+            }
+          }
+
+          if (!isLoaded) {
+            throw new Error(
+              `Page failed to load within 3 minutes. Attempts: ${attempt}, DOM check=${lastExtractResult}, Visual check=${lastScreenshotResult}`,
+            );
+          }
+
+          this.logger({
+            category: "agent",
+            message: `Page successfully loaded after ${attempt} attempts (${Math.floor((Date.now() - startTime) / 1000)}s total). Both DOM and visual checks passed.`,
+            level: 1,
+          });
+
+          break;
         }
 
         default:
