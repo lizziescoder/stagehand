@@ -33,7 +33,7 @@ type AnthropicTool = {
   display_height_px?: number;
   display_number?: number;
   description?: string;
-  parameters?: Record<string, unknown>;
+  input_schema?: Record<string, unknown>;
 };
 
 // Type for request params
@@ -79,7 +79,7 @@ export class AnthropicCUAClient extends AgentClient {
       name: "toggle",
       description:
         "Find and toggle a UI element like a switch, checkbox, or toggle button",
-      parameters: {
+      input_schema: {
         type: "object",
         properties: {
           description: {
