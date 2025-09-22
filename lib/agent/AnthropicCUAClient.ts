@@ -75,7 +75,7 @@ export class AnthropicCUAClient extends AgentClient {
   // Custom tools definitions
   private customTools = [
     {
-      type: "function",
+      type: "custom",
       name: "toggle",
       description:
         "Find and toggle a UI element like a switch, checkbox, or toggle button",
