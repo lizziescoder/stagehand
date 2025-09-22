@@ -511,6 +511,58 @@ export class StagehandAgentHandler {
           return { success: true };
         }
 
+        case "toggle": {
+          // Handle the custom toggle action
+          const { description } = action;
+          this.logger({
+            category: "agent",
+            message: `Executing toggle action: ${description}`,
+            level: 1,
+          });
+
+          try {
+            // Use observe to find the toggle element
+            const observeResults = await this.stagehandPage.observe(
+              `Find the toggle element: ${description}`,
+            );
+
+            if (!observeResults || observeResults.length === 0) {
+              this.logger({
+                category: "agent",
+                message: `Toggle element not found: ${description}`,
+                level: 0,
+              });
+              return {
+                success: false,
+                error: `Toggle element not found: ${description}`,
+              };
+            }
+
+            // Click the toggle element
+            await this.stagehandPage.act(observeResults[0]);
+
+            this.logger({
+              category: "agent",
+              message: `Successfully toggled: ${description}`,
+              level: 2,
+            });
+
+            return { success: true };
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            this.logger({
+              category: "agent",
+              message: `Error executing toggle: ${errorMessage}`,
+              level: 0,
+            });
+            return {
+              success: false,
+              error: errorMessage,
+            };
+          }
+        }
+
         default:
           return {
             success: false,

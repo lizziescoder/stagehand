@@ -25,18 +25,23 @@ interface UsageWithCache {
   cache_read_input_tokens?: number;
 }
 
+// Type for tools in request
+type AnthropicTool = {
+  type: string;
+  name: string;
+  display_width_px?: number;
+  display_height_px?: number;
+  display_number?: number;
+  description?: string;
+  parameters?: Record<string, unknown>;
+};
+
 // Type for request params
 interface AnthropicRequestParams {
   model: string;
   max_tokens: number;
   messages: AnthropicMessage[];
-  tools: Array<{
-    type: string;
-    name: string;
-    display_width_px: number;
-    display_height_px: number;
-    display_number: number;
-  }>;
+  tools: AnthropicTool[];
   betas: string[];
   system?: Array<{
     type: string;
@@ -66,6 +71,27 @@ export class AnthropicCUAClient extends AgentClient {
   private stepNarratives: AgentStepNarrative[] = [];
   private currentStepIndex: number = 0;
   private hasInitialScreenshot: boolean = false;
+
+  // Custom tools definitions
+  private customTools = [
+    {
+      type: "function",
+      name: "toggle",
+      description:
+        "Find and toggle a UI element like a switch, checkbox, or toggle button",
+      parameters: {
+        type: "object",
+        properties: {
+          description: {
+            type: "string",
+            description:
+              "Description of what element to toggle (e.g., 'dark mode switch', 'notifications toggle')",
+          },
+        },
+        required: ["description"],
+      },
+    },
+  ];
 
   constructor(
     type: AgentType,
@@ -531,6 +557,8 @@ export class AnthropicCUAClient extends AgentClient {
             display_height_px: this.currentViewport.height,
             display_number: 1,
           },
+          // Include custom tools
+          ...this.customTools,
         ],
         betas: ["computer-use-2025-01-24"],
       };
@@ -634,8 +662,23 @@ export class AnthropicCUAClient extends AgentClient {
 
         // TODO: Normalize and migrate to agentHandler
 
+        // Handle custom tools
+        if (item.name === "toggle") {
+          // Custom tools are executed by agentHandler, we just return success
+          nextInputItems.push({
+            type: "tool_result",
+            tool_use_id: item.id,
+            content: "Toggle action executed successfully",
+          });
+
+          logger({
+            category: "agent",
+            message: `Added toggle tool result for tool_use_id: ${item.id}`,
+            level: 2,
+          });
+        }
         // For computer tool, capture screenshot and return image
-        if (item.name === "computer") {
+        else if (item.name === "computer") {
           // Get action type
           const action = item.input.action as string;
           logger({
@@ -792,6 +835,15 @@ export class AnthropicCUAClient extends AgentClient {
   private convertToolUseToAction(item: ToolUseItem): AgentAction | null {
     try {
       const { name, input } = item;
+
+      // Handle custom tools first
+      if (name === "toggle") {
+        return {
+          type: "toggle",
+          description: input.description as string,
+          ...input,
+        };
+      }
 
       if (name === "computer") {
         // For computer actions, format according to the action type
